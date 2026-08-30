@@ -77,15 +77,9 @@ client.on("interactionCreate", async (interaction) => {
           `## Willkommens-Channel gesetzt\n\nAb jetzt werden Willkommens-Nachrichten in ${channel} gesendet.`
         )
       )
-      .addSeparatorComponents(
-        new SeparatorBuilder()
-          .setDivider(true)
-          .setSpacing(SeparatorSpacingSize.Small)
-      );
-
     await interaction.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2,
+    components: [container],
+    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
     });
   }
 });
@@ -100,14 +94,9 @@ client.on("guildMemberAdd", async (member) => {
 
   const container = new ContainerBuilder()
     .setAccentColor(0x6d4aff)
-    .addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(
-        new MediaGalleryItemBuilder().setURL(member.user.displayAvatarURL())
-      )
-    )
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Willkommen! 🎉\nHey ${member}, willkommen auf **${member.guild.name}**!`
+        `👋 Willkommen auf dem **${member.guild.name}** Dc,${member}!`
       )
     )
     .addSeparatorComponents(
