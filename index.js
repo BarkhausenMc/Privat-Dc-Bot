@@ -9,6 +9,8 @@ const {
   TextDisplayBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
+  ButtonBuilder,
+  ButtonStyle,
 } = require("discord.js");
 const fs = require("fs");
 require("dotenv").config();
@@ -60,6 +62,15 @@ const commands = [
         .setDescription("Der Voice-Channel für den Member-Counter")
         .setRequired(true)
     ),
+  new SlashCommandBuilder()
+    .setName("rolemenu")
+    .setDescription("Erstellt ein Role-Select Menu mit Buttons")
+    .addStringOption((option) =>
+      option
+        .setName("rollen")
+        .setDescription("Format: emoji:rolle_id (durch Komma trennen)")
+        .setRequired(true)
+    ),
 ].map((command) => command.toJSON());
 
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
@@ -67,7 +78,10 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 (async () => {
   try {
     await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      Routes.applicationGuildCommands(
+        process.env.CLIENT_ID,
+        process.env.GUILD_ID
+      ),
       { body: commands }
     );
     console.log("Slash Commands für deinen Server registriert!");
@@ -91,6 +105,40 @@ client.once("ready", () => {
 });
 
 client.on("interactionCreate", async (interaction) => {
+  if (interaction.isButton()) {
+    const match = interaction.customId.match(/^role_(.+)$/);
+    if (!match) return;
+
+    const roleId = match[1];
+
+    try {
+      const member = await interaction.guild.members.fetch(
+        interaction.user.id
+      );
+
+      if (member.roles.cache.has(roleId)) {
+        await member.roles.remove(roleId);
+        await interaction.reply({
+          content: `❌ Rolle entfernt.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      } else {
+        await member.roles.add(roleId);
+        await interaction.reply({
+          content: `✅ Rolle hinzugefügt!`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      await interaction.reply({
+        content: "Fehler bei der Rollenzuweisung.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === "setwelcome") {
@@ -132,6 +180,51 @@ client.on("interactionCreate", async (interaction) => {
     await interaction.reply({
       components: [container],
       flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+    });
+  }
+
+  if (interaction.commandName === "rolemenu") {
+    const input = interaction.options.getString("rollen");
+    const entries = input.split(",");
+    const buttons = [];
+
+    for (const entry of entries) {
+      const [emoji, roleId] = entry.trim().split(":");
+      if (!emoji || !roleId) continue;
+
+      buttons.push(
+        new ButtonBuilder()
+          .setCustomId(`role_${roleId.trim()}`)
+          .setLabel(emoji.trim())
+          .setStyle(ButtonStyle.Primary)
+      );
+    }
+
+    if (buttons.length === 0) {
+      await interaction.reply({
+        content: "Keine gültigen Rollen gefunden. Format: `emoji:rolle_id`",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const container = new ContainerBuilder()
+      .setAccentColor(0x6d4aff)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          "## 🎮 Rolle auswählen\nKlicke auf einen Button, um eine Rolle zu erhalten oder zu entfernen."
+        )
+      )
+      .addSeparatorComponents(
+        new SeparatorBuilder()
+          .setDivider(true)
+          .setSpacing(SeparatorSpacingSize.Small)
+      )
+      .addButtonComponents(buttons);
+
+    await interaction.reply({
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
     });
   }
 });
