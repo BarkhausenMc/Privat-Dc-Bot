@@ -11,6 +11,7 @@ const {
   SeparatorSpacingSize,
   ButtonBuilder,
   ButtonStyle,
+  ActionRowBuilder,
 } = require("discord.js");
 const fs = require("fs");
 require("dotenv").config();
@@ -90,7 +91,7 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
   }
 })();
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`Bot ist online als ${client.user.tag}`);
 
   client.guilds.cache.forEach((guild) => {
@@ -208,7 +209,7 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
-    const container = new ContainerBuilder()
+    const textContainer = new ContainerBuilder()
       .setAccentColor(0x6d4aff)
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
@@ -219,11 +220,12 @@ client.on("interactionCreate", async (interaction) => {
         new SeparatorBuilder()
           .setDivider(true)
           .setSpacing(SeparatorSpacingSize.Small)
-      )
-      .addButtonComponents(buttons);
+      );
+
+    const actionRow = new ActionRowBuilder().addComponents(buttons);
 
     await interaction.reply({
-      components: [container],
+      components: [textContainer, actionRow],
       flags: MessageFlags.IsComponentsV2,
     });
   }
