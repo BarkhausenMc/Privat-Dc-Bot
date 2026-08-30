@@ -26,4 +26,5 @@ client.on("guildMemberAdd", (member) => {
   channel.send({ embeds: [embed] });
 });
 
-client.login("DEIN_TOKEN_HIER");
+require("dotenv").config();
+client.login(process.env.DISCORD_TOKEN);
