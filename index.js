@@ -9,8 +9,6 @@ const {
   TextDisplayBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
-  MediaGalleryBuilder,
-  MediaGalleryItemBuilder,
 } = require("discord.js");
 const fs = require("fs");
 require("dotenv").config();
@@ -32,6 +30,17 @@ function saveConfig(config) {
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
 }
 
+async function updateMemberCount(guild) {
+  const config = loadConfig();
+  if (!config.counterChannelId) return;
+
+  const channel = guild.channels.cache.get(config.counterChannelId);
+  if (!channel) return;
+
+  const count = guild.memberCount;
+  await channel.setName(`👥 Mitglieder: ${count}`).catch(() => {});
+}
+
 const commands = [
   new SlashCommandBuilder()
     .setName("setwelcome")
@@ -40,6 +49,15 @@ const commands = [
       option
         .setName("channel")
         .setDescription("Der Channel für Willkommens-Nachrichten")
+        .setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName("setcounter")
+    .setDescription("Legt den Voice-Channel für den Member-Counter fest")
+    .addChannelOption((option) =>
+      option
+        .setName("channel")
+        .setDescription("Der Voice-Channel für den Member-Counter")
         .setRequired(true)
     ),
 ].map((command) => command.toJSON());
@@ -59,6 +77,16 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 client.once("ready", () => {
   console.log(`Bot ist online als ${client.user.tag}`);
+
+  client.guilds.cache.forEach((guild) => {
+    updateMemberCount(guild);
+  });
+
+  setInterval(() => {
+    client.guilds.cache.forEach((guild) => {
+      updateMemberCount(guild);
+    });
+  }, 600000);
 });
 
 client.on("interactionCreate", async (interaction) => {
@@ -76,15 +104,40 @@ client.on("interactionCreate", async (interaction) => {
         new TextDisplayBuilder().setContent(
           `## Willkommens-Channel gesetzt\n\nAb jetzt werden Willkommens-Nachrichten in ${channel} gesendet.`
         )
-      )
+      );
+
     await interaction.reply({
-    components: [container],
-    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+      components: [container],
+      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+    });
+  }
+
+  if (interaction.commandName === "setcounter") {
+    const channel = interaction.options.getChannel("channel");
+    const config = loadConfig();
+    config.counterChannelId = channel.id;
+    saveConfig(config);
+
+    await updateMemberCount(interaction.guild);
+
+    const container = new ContainerBuilder()
+      .setAccentColor(0x6d4aff)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## Counter-Channel gesetzt\n\nDer Member-Counter ist jetzt in ${channel} aktiv.`
+        )
+      );
+
+    await interaction.reply({
+      components: [container],
+      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
     });
   }
 });
 
 client.on("guildMemberAdd", async (member) => {
+  updateMemberCount(member.guild);
+
   const config = loadConfig();
   const channelId = config.welcomeChannelId;
   if (!channelId) return;
@@ -114,6 +167,10 @@ client.on("guildMemberAdd", async (member) => {
     components: [container],
     flags: MessageFlags.IsComponentsV2,
   });
+});
+
+client.on("guildMemberRemove", (member) => {
+  updateMemberCount(member.guild);
 });
 
 client.login(process.env.DISCORD_TOKEN);
