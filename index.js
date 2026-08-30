@@ -96,7 +96,7 @@ client.on("guildMemberAdd", async (member) => {
     .setAccentColor(0x6d4aff)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## 👋 Willkommen auf dem **${member.guild.name}** Dc,${member}!`
+        `## 👋 Willkommen auf **${member.guild.name}**,${member}!`
       )
     )
     .addSeparatorComponents(
