@@ -38,7 +38,7 @@ async function updateMemberCount(guild) {
   if (!channel) return;
 
   const count = guild.memberCount;
-  await channel.setName(`👥 Mitglieder: ${count}`).catch(() => {});
+  await channel.setName(`👥│ Mitglieder: ${count}`).catch(() => {});
 }
 
 const commands = [
