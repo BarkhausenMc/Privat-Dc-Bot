@@ -1,6 +1,7 @@
 const {
   Client,
   GatewayIntentBits,
+  Partials,
   SlashCommandBuilder,
   REST,
   Routes,
@@ -9,15 +10,18 @@ const {
   TextDisplayBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
-  ButtonBuilder,
-  ButtonStyle,
-  ActionRowBuilder,
 } = require("discord.js");
 const fs = require("fs");
 require("dotenv").config();
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
+  ],
+  partials: [Partials.Message, Partials.Reaction, Partials.User],
 });
 
 const configFile = "./config.json";
@@ -65,7 +69,7 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("rolemenu")
-    .setDescription("Erstellt ein Role-Select Menu mit Buttons")
+    .setDescription("Erstellt ein Role-Menu mit Reactions")
     .addStringOption((option) =>
       option
         .setName("rollen")
@@ -106,40 +110,6 @@ client.once("clientReady", () => {
 });
 
 client.on("interactionCreate", async (interaction) => {
-  if (interaction.isButton()) {
-    const match = interaction.customId.match(/^role_(.+)$/);
-    if (!match) return;
-
-    const roleId = match[1];
-
-    try {
-      const member = await interaction.guild.members.fetch(
-        interaction.user.id
-      );
-
-      if (member.roles.cache.has(roleId)) {
-        await member.roles.remove(roleId);
-        await interaction.reply({
-          content: `❌ Rolle entfernt.`,
-          flags: MessageFlags.Ephemeral,
-        });
-      } else {
-        await member.roles.add(roleId);
-        await interaction.reply({
-          content: `✅ Rolle hinzugefügt!`,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      await interaction.reply({
-        content: "Fehler bei der Rollenzuweisung.",
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-    return;
-  }
-
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === "setwelcome") {
@@ -187,21 +157,28 @@ client.on("interactionCreate", async (interaction) => {
   if (interaction.commandName === "rolemenu") {
     const input = interaction.options.getString("rollen");
     const entries = input.split(",");
-    const buttons = [];
+    const roleMap = {};
+    const lines = [];
+    const emojis = [];
 
     for (const entry of entries) {
       const [emoji, roleId] = entry.trim().split(":");
       if (!emoji || !roleId) continue;
 
-      buttons.push(
-        new ButtonBuilder()
-          .setCustomId(`role_${roleId.trim()}`)
-          .setLabel(emoji.trim())
-          .setStyle(ButtonStyle.Primary)
-      );
+      const trimmedEmoji = emoji.trim();
+      const trimmedRoleId = roleId.trim();
+
+      const role = await interaction.guild.roles
+        .fetch(trimmedRoleId)
+        .catch(() => null);
+
+      const roleName = role ? role.name : "Unbekannte Rolle";
+      roleMap[trimmedEmoji] = trimmedRoleId;
+      lines.push(`${trimmedEmoji} — **${roleName}**`);
+      emojis.push(trimmedEmoji);
     }
 
-    if (buttons.length === 0) {
+    if (lines.length === 0) {
       await interaction.reply({
         content: "Keine gültigen Rollen gefunden. Format: `emoji:rolle_id`",
         flags: MessageFlags.Ephemeral,
@@ -209,26 +186,94 @@ client.on("interactionCreate", async (interaction) => {
       return;
     }
 
-    const textContainer = new ContainerBuilder()
+    const container = new ContainerBuilder()
       .setAccentColor(0x6d4aff)
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          "## 🎮 Rolle auswählen\nKlicke auf einen Button, um eine Rolle zu erhalten oder zu entfernen."
+          "## 🎮 Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
         )
       )
       .addSeparatorComponents(
         new SeparatorBuilder()
           .setDivider(true)
           .setSpacing(SeparatorSpacingSize.Small)
+      )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(lines.join("\n"))
       );
 
-    const actionRow = new ActionRowBuilder().addComponents(buttons);
-
     await interaction.reply({
-      components: [textContainer, actionRow],
+      components: [container],
       flags: MessageFlags.IsComponentsV2,
     });
+
+    const msg = await interaction.fetchReply();
+
+    const config = loadConfig();
+    config.roleMenus = config.roleMenus || {};
+    config.roleMenus[msg.id] = roleMap;
+    saveConfig(config);
+
+    for (const emoji of emojis) {
+      await msg.react(emoji).catch(() => {});
+    }
   }
+});
+
+client.on("messageReactionAdd", async (reaction, user) => {
+  if (user.bot) return;
+
+  if (reaction.partial) {
+    try {
+      await reaction.fetch();
+    } catch {
+      return;
+    }
+  }
+
+  const config = loadConfig();
+  const roleMenus = config.roleMenus || {};
+  const roleMap = roleMenus[reaction.message.id];
+  if (!roleMap) return;
+
+  const roleId = roleMap[reaction.emoji.name];
+  if (!roleId) return;
+
+  const guild = reaction.message.guild;
+  if (!guild) return;
+
+  const member = await guild.members.fetch(user.id).catch(() => null);
+  if (!member) return;
+
+  await member.roles.add(roleId).catch(() => {});
+});
+
+client.on("messageReactionRemove", async (reaction, user) => {
+  if (user.bot) return;
+
+  if (reaction.partial) {
+    try {
+      await reaction.fetch();
+    } catch {
+      return;
+    }
+  }
+
+  const config = loadConfig();
+  const roleMenus = config.roleMenus || {};
+  const roleMap = roleMenus[reaction.message.id];
+  if (!roleMap) return;
+
+  const roleId = roleMap[reaction.emoji.name];
+  if (!roleId) return;
+
+  const guild = reaction.message.guild;
+  if (!guild) return;
+
+  const member = await guild.members.fetch(user.id).catch(() => null);
+  if (!member) return;
+
+  await member.roles.remove(roleId).catch(() => {});
 });
 
 client.on("guildMemberAdd", async (member) => {
