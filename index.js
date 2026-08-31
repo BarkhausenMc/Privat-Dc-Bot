@@ -215,6 +215,30 @@ const commands = [
         .setDescription("Format: emoji:rolle_id (durch Komma trennen)")
         .setRequired(true)
     ),
+      new SlashCommandBuilder()
+    .setName("chatdelete")
+    .setDescription("Löscht ALLE Nachrichten aus einem Channel")
+    .addStringOption((option) =>
+      option
+        .setName("channel_id")
+        .setDescription("Die ID des Channels, der geleert werden soll")
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName("say")
+    .setDescription("Bot sagt etwas in einem Channel")
+    .addStringOption((option) =>
+      option
+        .setName("text")
+        .setDescription("Was der Bot sagen soll")
+        .setRequired(true)
+    )
+    .addChannelOption((option) =>
+      option
+        .setName("channel")
+        .setDescription("Ziel-Channel (optional, sonst aktueller Channel)")
+    ),
 ].map((command) => command.toJSON());
 
 // --- Commands registrieren ---
@@ -355,7 +379,7 @@ client.on("guildMemberAdd", async (member) => {
     .setAccentColor(0x6d4aff)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## 👋 Willkommen auf **${member.guild.name}**, ${member}!`
+        `## 👋 Willkommen, ${member}!`
       )
     )
     .addSeparatorComponents(
@@ -380,4 +404,56 @@ client.on("guildMemberRemove", (member) => {
   // Optional: Counter aktualisieren, falls du das noch brauchst
 });
 
+  if (interaction.commandName === "chatdelete") {
+    // Nur Admins dürfen das
+    if (!interaction.member.permissions.has("ManageMessages")) {
+      await interaction.reply({
+        content: "❌ Du brauchst die Berechtigung **Nachrichten verwalten**!",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const channelId = interaction.options.getString("channel_id");
+    const channel = await interaction.guild.channels
+      .fetch(channelId)
+      .catch(() => null);
+
+    if (!channel || !channel.isTextBased()) {
+      await interaction.reply({
+        content: "❌ Channel nicht gefunden (oder keine Text-Channel-ID).",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    let deleted = 0;
+    // Discord erlaubt nur 100 pro Aufruf → in Schleifen löschen
+    while (true) {
+      const batch = await channel.bulkDelete(100, true).catch(() => null);
+      if (!batch || batch.size === 0) break;
+      deleted += batch.size;
+    }
+
+    await interaction.editReply(
+      `🗑️ **${deleted}** Nachrichten aus ${channel} gelöscht!`
+    );
+  }
+
+  if (interaction.commandName === "say") {
+    const text = interaction.options.getString("text");
+    const targetChannel =
+      interaction.options.getChannel("channel") || interaction.channel;
+
+    await targetChannel.send({ content: text }).catch((err) => {
+      console.error("Senden fehlgeschlagen:", err.message);
+    });
+
+    await interaction.reply({
+      content: `✅ Nachricht in ${targetChannel} gesendet.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 client.login(process.env.DISCORD_TOKEN);
