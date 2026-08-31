@@ -37,17 +37,73 @@ function saveConfig(config) {
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
 }
 
-async function updateMemberCount(guild) {
+// --- Neue Funktion: Rollmenü erstellen ---
+async function createRoleMenu(interaction, input) {
+  const entries = input.split(",").map(e => e.trim());
+  const roleMap = {};
+  const lines = [];
+  const emojis = [];
+
+  for (const entry of entries) {
+    const [emoji, roleId] = entry.split(":").map(s => s.trim());
+    if (!emoji || !roleId) continue;
+
+    const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+    const roleName = role ? role.name : "❌ Unbekannte Rolle";
+    
+    roleMap[emoji] = roleId;
+    lines.push(`${emoji} — **${roleName}**`);
+    emojis.push(emoji);
+  }
+
+  if (lines.length === 0) {
+    await interaction.reply({
+      content: "⚠️ Keine gültigen Rollen gefunden. Format: `emoji:rolle_id` (durch Komma trennen)",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  // Nachricht erstellen
+  const container = new ContainerBuilder()
+    .setAccentColor(0x6d4aff)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        "## 🎮 Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
+      )
+    )
+    .addSeparatorComponents(
+      new SeparatorBuilder()
+        .setDivider(true)
+        .setSpacing(SeparatorSpacingSize.Small)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(lines.join("\n"))
+    );
+
+  const msg = await interaction.reply({
+    components: [container],
+    flags: MessageFlags.IsComponentsV2,
+  });
+
+  // Konfiguration speichern
   const config = loadConfig();
-  if (!config.counterChannelId) return;
+  config.roleMenus = config.roleMenus || {};
+  config.roleMenus[msg.id] = roleMap;
+  saveConfig(config);
 
-  const channel = guild.channels.cache.get(config.counterChannelId);
-  if (!channel) return;
+  // Emojis hinzufügen
+  for (const emoji of emojis) {
+    await msg.react(emoji).catch(console.error);
+  }
 
-  const count = guild.memberCount;
-  await channel.setName(`👥│ Mitglieder: ${count}`).catch(() => {});
+  await interaction.followUp({
+    content: `✅ Role-Menu erstellt! ${emojis.length} Rollen hinzugefügt.`,
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
+// --- Commands definieren ---
 const commands = [
   new SlashCommandBuilder()
     .setName("setwelcome")
@@ -78,6 +134,7 @@ const commands = [
     ),
 ].map((command) => command.toJSON());
 
+// --- Commands registrieren ---
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
@@ -95,20 +152,12 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
   }
 })();
 
+// --- Event: Bot bereit ---
 client.once("clientReady", () => {
   console.log(`Bot ist online als ${client.user.tag}`);
-
-  client.guilds.cache.forEach((guild) => {
-    updateMemberCount(guild);
-  });
-
-  setInterval(() => {
-    client.guilds.cache.forEach((guild) => {
-      updateMemberCount(guild);
-    });
-  }, 600000);
 });
 
+// --- Event: Interaction ---
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -138,8 +187,6 @@ client.on("interactionCreate", async (interaction) => {
     config.counterChannelId = channel.id;
     saveConfig(config);
 
-    await updateMemberCount(interaction.guild);
-
     const container = new ContainerBuilder()
       .setAccentColor(0x6d4aff)
       .addTextDisplayComponents(
@@ -156,70 +203,11 @@ client.on("interactionCreate", async (interaction) => {
 
   if (interaction.commandName === "rolemenu") {
     const input = interaction.options.getString("rollen");
-    const entries = input.split(",");
-    const roleMap = {};
-    const lines = [];
-    const emojis = [];
-
-    for (const entry of entries) {
-      const [emoji, roleId] = entry.trim().split(":");
-      if (!emoji || !roleId) continue;
-
-      const trimmedEmoji = emoji.trim();
-      const trimmedRoleId = roleId.trim();
-
-      const role = await interaction.guild.roles
-        .fetch(trimmedRoleId)
-        .catch(() => null);
-
-      const roleName = role ? role.name : "Unbekannte Rolle";
-      roleMap[trimmedEmoji] = trimmedRoleId;
-      lines.push(`${trimmedEmoji} — **${roleName}**`);
-      emojis.push(trimmedEmoji);
-    }
-
-    if (lines.length === 0) {
-      await interaction.reply({
-        content: "Keine gültigen Rollen gefunden. Format: `emoji:rolle_id`",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    const container = new ContainerBuilder()
-      .setAccentColor(0x6d4aff)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          "## 🎮 Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
-        )
-      )
-      .addSeparatorComponents(
-        new SeparatorBuilder()
-          .setDivider(true)
-          .setSpacing(SeparatorSpacingSize.Small)
-      )
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(lines.join("\n"))
-      );
-
-    await interaction.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2,
-    });
-
-    const msg = await interaction.fetchReply();
-
-    const config = loadConfig();
-    config.roleMenus = config.roleMenus || {};
-    config.roleMenus[msg.id] = roleMap;
-    saveConfig(config);
-
-    for (const emoji of emojis) {
-      await msg.react(emoji).catch(() => {});
-    }
+    await createRoleMenu(interaction, input);
   }
 });
 
+// --- Event: Reaktion hinzufügen ---
 client.on("messageReactionAdd", async (reaction, user) => {
   if (user.bot) return;
 
@@ -232,22 +220,20 @@ client.on("messageReactionAdd", async (reaction, user) => {
   }
 
   const config = loadConfig();
-  const roleMenus = config.roleMenus || {};
-  const roleMap = roleMenus[reaction.message.id];
+  const roleMap = config.roleMenus?.[reaction.message.id];
   if (!roleMap) return;
 
   const roleId = roleMap[reaction.emoji.name];
   if (!roleId) return;
 
   const guild = reaction.message.guild;
-  if (!guild) return;
-
   const member = await guild.members.fetch(user.id).catch(() => null);
   if (!member) return;
 
-  await member.roles.add(roleId).catch(() => {});
+  await member.roles.add(roleId).catch(console.error);
 });
 
+// --- Event: Reaktion entfernen ---
 client.on("messageReactionRemove", async (reaction, user) => {
   if (user.bot) return;
 
@@ -260,25 +246,21 @@ client.on("messageReactionRemove", async (reaction, user) => {
   }
 
   const config = loadConfig();
-  const roleMenus = config.roleMenus || {};
-  const roleMap = roleMenus[reaction.message.id];
+  const roleMap = config.roleMenus?.[reaction.message.id];
   if (!roleMap) return;
 
   const roleId = roleMap[reaction.emoji.name];
   if (!roleId) return;
 
   const guild = reaction.message.guild;
-  if (!guild) return;
-
   const member = await guild.members.fetch(user.id).catch(() => null);
   if (!member) return;
 
-  await member.roles.remove(roleId).catch(() => {});
+  await member.roles.remove(roleId).catch(console.error);
 });
 
+// --- Event: Mitglied kommt ---
 client.on("guildMemberAdd", async (member) => {
-  updateMemberCount(member.guild);
-
   const config = loadConfig();
   const channelId = config.welcomeChannelId;
   if (!channelId) return;
@@ -290,7 +272,7 @@ client.on("guildMemberAdd", async (member) => {
     .setAccentColor(0x6d4aff)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## 👋 Willkommen auf **${member.guild.name}**,${member}!`
+        `## 👋 Willkommen auf **${member.guild.name}**, ${member}!`
       )
     )
     .addSeparatorComponents(
@@ -310,8 +292,9 @@ client.on("guildMemberAdd", async (member) => {
   });
 });
 
+// --- Event: Mitglied geht ---
 client.on("guildMemberRemove", (member) => {
-  updateMemberCount(member.guild);
+  // Optional: Counter aktualisieren, falls du das noch brauchst
 });
 
 client.login(process.env.DISCORD_TOKEN);
