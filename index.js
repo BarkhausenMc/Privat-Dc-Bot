@@ -312,6 +312,60 @@ client.on("interactionCreate", async (interaction) => {
     const input = interaction.options.getString("rollen");
     await createRoleMenu(interaction, input);
   }
+
+    if (interaction.commandName === "chatdelete") {
+    // Nur Admins dürfen das
+    if (!interaction.member.permissions.has("ManageMessages")) {
+      await interaction.reply({
+        content: "❌ Du brauchst die Berechtigung **Nachrichten verwalten**!",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const channelId = interaction.options.getString("channel_id");
+    const channel = await interaction.guild.channels
+      .fetch(channelId)
+      .catch(() => null);
+
+    if (!channel || !channel.isTextBased()) {
+      await interaction.reply({
+        content: "❌ Channel nicht gefunden (oder keine Text-Channel-ID).",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    let deleted = 0;
+    // Discord erlaubt nur 100 pro Aufruf → in Schleifen löschen
+    while (true) {
+      const batch = await channel.bulkDelete(100, true).catch(() => null);
+      if (!batch || batch.size === 0) break;
+      deleted += batch.size;
+    }
+
+    await interaction.editReply(
+      `🗑️ **${deleted}** Nachrichten aus ${channel} gelöscht!`
+    );
+  }
+
+  if (interaction.commandName === "say") {
+    const text = interaction.options.getString("text");
+    const targetChannel =
+      interaction.options.getChannel("channel") || interaction.channel;
+
+    await targetChannel.send({ content: text }).catch((err) => {
+      console.error("Senden fehlgeschlagen:", err.message);
+    });
+
+    await interaction.reply({
+      content: `✅ Nachricht in ${targetChannel} gesendet.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
 });
 
 // --- Event: Reaktion hinzufügen ---
@@ -398,58 +452,6 @@ client.on("guildMemberAdd", async (member) => {
     flags: MessageFlags.IsComponentsV2,
   });
 });
-  if (interaction.commandName === "chatdelete") {
-    // Nur Admins dürfen das
-    if (!interaction.member.permissions.has("ManageMessages")) {
-      await interaction.reply({
-        content: "❌ Du brauchst die Berechtigung **Nachrichten verwalten**!",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    const channelId = interaction.options.getString("channel_id");
-    const channel = await interaction.guild.channels
-      .fetch(channelId)
-      .catch(() => null);
-
-    if (!channel || !channel.isTextBased()) {
-      await interaction.reply({
-        content: "❌ Channel nicht gefunden (oder keine Text-Channel-ID).",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-    let deleted = 0;
-    // Discord erlaubt nur 100 pro Aufruf → in Schleifen löschen
-    while (true) {
-      const batch = await channel.bulkDelete(100, true).catch(() => null);
-      if (!batch || batch.size === 0) break;
-      deleted += batch.size;
-    }
-
-    await interaction.editReply(
-      `🗑️ **${deleted}** Nachrichten aus ${channel} gelöscht!`
-    );
-  }
-
-  if (interaction.commandName === "say") {
-    const text = interaction.options.getString("text");
-    const targetChannel =
-      interaction.options.getChannel("channel") || interaction.channel;
-
-    await targetChannel.send({ content: text }).catch((err) => {
-      console.error("Senden fehlgeschlagen:", err.message);
-    });
-
-    await interaction.reply({
-      content: `✅ Nachricht in ${targetChannel} gesendet.`,
-      flags: MessageFlags.Ephemeral,
-    });
-  }
 // --- Event: Mitglied geht ---
 client.on("guildMemberRemove", (member) => {
   // Optional: Counter aktualisieren, falls du das noch brauchst
