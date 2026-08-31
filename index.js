@@ -102,7 +102,7 @@ async function createRoleMenu(interaction, input) {
           .setAccentColor(0x6d4aff)
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-              "## 🎮 Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
+              "## Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
             )
           )
           .addSeparatorComponents(
@@ -146,7 +146,7 @@ async function createRoleMenu(interaction, input) {
     .setAccentColor(0x6d4aff)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        "## 🎮 Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
+        "## Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
       )
     )
     .addSeparatorComponents(
