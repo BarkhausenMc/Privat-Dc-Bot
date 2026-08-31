@@ -50,7 +50,7 @@ async function createRoleMenu(interaction, input) {
 
     const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
     const roleName = role ? role.name : "❌ Unbekannte Rolle";
-    
+
     roleMap[emoji] = roleId;
     lines.push(`${emoji} — **${roleName}**`);
     emojis.push(emoji);
@@ -81,20 +81,26 @@ async function createRoleMenu(interaction, input) {
       new TextDisplayBuilder().setContent(lines.join("\n"))
     );
 
-  const msg = await interaction.reply({
+  // Nachricht senden
+  await interaction.reply({
     components: [container],
     flags: MessageFlags.IsComponentsV2,
   });
 
-  // Konfiguration speichern
+  // Die echte Message holen – die hat .react()
+  const msg = await interaction.fetchReply();
+
+  // Konfiguration speichern (nur EINMAL!)
   const config = loadConfig();
   config.roleMenus = config.roleMenus || {};
   config.roleMenus[msg.id] = roleMap;
   saveConfig(config);
 
-  // Emojis hinzufügen
+  // Emojis als Reaktionen hinzufügen (nur EINMAL!)
   for (const emoji of emojis) {
-    await msg.react(emoji).catch(console.error);
+    await msg.react(emoji).catch((err) =>
+      console.error(`Konnte nicht mit ${emoji} reagieren:`, err.message)
+    );
   }
 
   await interaction.followUp({
