@@ -398,12 +398,6 @@ client.on("guildMemberAdd", async (member) => {
     flags: MessageFlags.IsComponentsV2,
   });
 });
-
-// --- Event: Mitglied geht ---
-client.on("guildMemberRemove", (member) => {
-  // Optional: Counter aktualisieren, falls du das noch brauchst
-});
-
   if (interaction.commandName === "chatdelete") {
     // Nur Admins dürfen das
     if (!interaction.member.permissions.has("ManageMessages")) {
@@ -456,4 +450,8 @@ client.on("guildMemberRemove", (member) => {
       flags: MessageFlags.Ephemeral,
     });
   }
+// --- Event: Mitglied geht ---
+client.on("guildMemberRemove", (member) => {
+  // Optional: Counter aktualisieren, falls du das noch brauchst
+});
 client.login(process.env.DISCORD_TOKEN);
