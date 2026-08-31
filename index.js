@@ -37,12 +37,14 @@ function saveConfig(config) {
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
 }
 
-// --- Neue Funktion: Rollmenü erstellen ---
+// --- Funktion: Rollmenü erstellen oder updaten ---
 async function createRoleMenu(interaction, input) {
   const entries = input.split(",").map(e => e.trim());
-  const roleMap = {};
-  const lines = [];
-  const emojis = [];
+
+  // Neue Rollen aus dem Input parsen
+  const newRoles = {};
+  const newLines = [];
+  const newEmojis = [];
 
   for (const entry of entries) {
     const [emoji, roleId] = entry.split(":").map(s => s.trim());
@@ -51,12 +53,12 @@ async function createRoleMenu(interaction, input) {
     const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
     const roleName = role ? role.name : "❌ Unbekannte Rolle";
 
-    roleMap[emoji] = roleId;
-    lines.push(`${emoji} — **${roleName}**`);
-    emojis.push(emoji);
+    newRoles[emoji] = roleId;
+    newLines.push({ emoji, roleName });
+    newEmojis.push(emoji);
   }
 
-  if (lines.length === 0) {
+  if (newLines.length === 0) {
     await interaction.reply({
       content: "⚠️ Keine gültigen Rollen gefunden. Format: `emoji:rolle_id` (durch Komma trennen)",
       flags: MessageFlags.Ephemeral,
@@ -64,7 +66,82 @@ async function createRoleMenu(interaction, input) {
     return;
   }
 
-  // Nachricht erstellen
+  const config = loadConfig();
+  config.roleMenus = config.roleMenus || {};
+
+  // Schauen, ob es schon ein Role-Menu gibt
+  const existingMsgId = config.roleMenuMessageId;
+  const existingChannelId = config.roleMenuChannelId;
+
+  let roleMap = {};
+  let allLines = [...newLines]; // neu dazu kommende Rollen
+
+  if (existingMsgId && existingChannelId) {
+    // Altes Role-Menu laden
+    roleMap = config.roleMenus[existingMsgId] || {};
+
+    // Alte Rollen in die Anzeige aufnehmen (falls sie nicht neu dabei sind)
+    for (const [oldEmoji, oldRoleId] of Object.entries(roleMap)) {
+      if (!newRoles[oldEmoji]) {
+        const oldRole = await interaction.guild.roles.fetch(oldRoleId).catch(() => null);
+        const oldRoleName = oldRole ? oldRole.name : "❌ Unbekannte Rolle";
+        allLines.unshift({ emoji: oldEmoji, roleName: oldRoleName });
+      }
+    }
+
+    // Neue Rollen ins bestehende roleMap mergen
+    Object.assign(roleMap, newRoles);
+
+    // Alte Nachricht updaten
+    const channel = await interaction.guild.channels.fetch(existingChannelId).catch(() => null);
+    if (channel) {
+      const oldMsg = await channel.messages.fetch(existingMsgId).catch(() => null);
+      if (oldMsg) {
+        // Container neu bauen mit ALLEN Rollen
+        const container = new ContainerBuilder()
+          .setAccentColor(0x6d4aff)
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              "## 🎮 Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
+            )
+          )
+          .addSeparatorComponents(
+            new SeparatorBuilder()
+              .setDivider(true)
+              .setSpacing(SeparatorSpacingSize.Small)
+          )
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              allLines.map(l => `${l.emoji} — **${l.roleName}**`).join("\n")
+            )
+          );
+
+        await oldMsg.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
+
+        // Nur NEUE Emojis hinzufügen (alte sind ja schon drauf)
+        for (const emoji of newEmojis) {
+          await oldMsg.react(emoji).catch((err) =>
+            console.error(`Konnte nicht mit ${emoji} reagieren:`, err.message)
+          );
+        }
+
+        // Config updaten
+        config.roleMenus[existingMsgId] = roleMap;
+        saveConfig(config);
+
+        await interaction.reply({
+          content: `✅ Role-Menu aktualisiert! ${newEmojis.length} neue Rolle(n) hinzugefügt.`,
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+    }
+    // Falls die alte Nachricht nicht gefunden wurde → neue erstellen (fallback unten)
+  }
+
+  // --- Neue Nachricht erstellen (erster Aufruf oder Fallback) ---
+  roleMap = newRoles;
+
   const container = new ContainerBuilder()
     .setAccentColor(0x6d4aff)
     .addTextDisplayComponents(
@@ -78,33 +155,33 @@ async function createRoleMenu(interaction, input) {
         .setSpacing(SeparatorSpacingSize.Small)
     )
     .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(lines.join("\n"))
+      new TextDisplayBuilder().setContent(
+        allLines.map(l => `${l.emoji} — **${l.roleName}**`).join("\n")
+      )
     );
 
-  // Nachricht senden
   await interaction.reply({
     components: [container],
     flags: MessageFlags.IsComponentsV2,
   });
 
-  // Die echte Message holen – die hat .react()
   const msg = await interaction.fetchReply();
 
-  // Konfiguration speichern (nur EINMAL!)
-  const config = loadConfig();
-  config.roleMenus = config.roleMenus || {};
+  // Config speichern
+  config.roleMenuMessageId = msg.id;
+  config.roleMenuChannelId = interaction.channelId;
   config.roleMenus[msg.id] = roleMap;
   saveConfig(config);
 
-  // Emojis als Reaktionen hinzufügen (nur EINMAL!)
-  for (const emoji of emojis) {
+  // Alle Emojis hinzufügen (erste Nachricht → alle sind neu)
+  for (const emoji of newEmojis) {
     await msg.react(emoji).catch((err) =>
       console.error(`Konnte nicht mit ${emoji} reagieren:`, err.message)
     );
   }
 
   await interaction.followUp({
-    content: `✅ Role-Menu erstellt! ${emojis.length} Rollen hinzugefügt.`,
+    content: `✅ Role-Menu erstellt! ${newEmojis.length} Rolle(n) hinzugefügt.`,
     flags: MessageFlags.Ephemeral,
   });
 }
