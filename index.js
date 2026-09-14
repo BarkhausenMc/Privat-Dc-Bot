@@ -380,19 +380,11 @@ client.on("interactionCreate", async (interaction) => {
   }
 
     if (interaction.commandName === "update") {
-    // Alle Guilds durchgehen und aktualisieren
-    let updatedCount = 0;
-    
-    client.guilds.cache.forEach((guild) => {
-      updateMemberCount(guild);
-      updatedCount++;
-    });
 
     const container = new ContainerBuilder()
-      .setAccentColor(0x6d4aff)
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `## 🔄 Update abgeschlossen\n\nDer Member-Counter wurde auf **${updatedCount}** Servern aktualisiert.`
+          `## 🔄 Update abgeschlossen\n\nDer Member-Counter wurde aktualisiert.`
         )
       );
 
