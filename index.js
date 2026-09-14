@@ -35,8 +35,9 @@ function loadConfig() {
 
 function saveConfig(config) {
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+}
 
-  async function updateMemberCount(guild) {
+async function updateMemberCount(guild) {
   const config = loadConfig();
   if (!config.counterChannelId) return;
 
@@ -44,7 +45,6 @@ function saveConfig(config) {
   if (!channel) return;
 
   await channel.setName(`👥│ Mitglieder: ${guild.memberCount}`).catch(() => {});
-}
 }
 
 // --- Funktion: Rollmenü erstellen oder updaten ---
