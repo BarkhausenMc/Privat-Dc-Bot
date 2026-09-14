@@ -239,6 +239,9 @@ const commands = [
         .setName("channel")
         .setDescription("Ziel-Channel (optional, sonst aktueller Channel)")
     ),
+    new SlashCommandBuilder()
+    .setName("update")
+    .setDescription("Aktualisiert alle Daten")
 ].map((command) => command.toJSON());
 
 // --- Commands registrieren ---
@@ -365,7 +368,29 @@ client.on("interactionCreate", async (interaction) => {
       flags: MessageFlags.Ephemeral,
     });
   }
+  
+    if (interaction.commandName === "update") {
+    // Alle Guilds durchgehen und aktualisieren
+    let updatedCount = 0;
+    
+    client.guilds.cache.forEach((guild) => {
+      updateMemberCount(guild);
+      updatedCount++;
+    });
 
+    const container = new ContainerBuilder()
+      .setAccentColor(0x6d4aff)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `## 🔄 Update abgeschlossen\n\nDer Member-Counter wurde auf **${updatedCount}** Servern aktualisiert.`
+        )
+      );
+
+    await interaction.reply({
+      components: [container],
+      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+    });
+  }
 });
 
 // --- Event: Reaktion hinzufügen ---
