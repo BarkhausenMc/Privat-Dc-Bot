@@ -35,6 +35,16 @@ function loadConfig() {
 
 function saveConfig(config) {
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+
+  async function updateMemberCount(guild) {
+  const config = loadConfig();
+  if (!config.counterChannelId) return;
+
+  const channel = guild.channels.cache.get(config.counterChannelId);
+  if (!channel) return;
+
+  await channel.setName(`👥│ Mitglieder: ${guild.memberCount}`).catch(() => {});
+}
 }
 
 // --- Funktion: Rollmenü erstellen oder updaten ---
@@ -368,7 +378,7 @@ client.on("interactionCreate", async (interaction) => {
       flags: MessageFlags.Ephemeral,
     });
   }
-  
+
     if (interaction.commandName === "update") {
     // Alle Guilds durchgehen und aktualisieren
     let updatedCount = 0;
