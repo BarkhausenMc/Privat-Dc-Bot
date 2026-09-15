@@ -1,486 +1,298 @@
-const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  SlashCommandBuilder,
-  REST,
-  Routes,
-  MessageFlags,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize,
-} = require("discord.js");
-const fs = require("fs");
-require("dotenv").config();
+const { Client, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+require('dotenv').config();
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMessageReactions,
-  ],
-  partials: [Partials.Message, Partials.Reaction, Partials.User],
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.MessageContent
+    ],
+    partials: [Partials.Channel, Partials.Message]
 });
 
-const configFile = "./config.json";
+// ⭐ KATEGORIEN-KONFIGURATION – hier fügst du neue Kategorien hinzu
+// custom_id → nur Kleinbuchstaben & Unterstriche
+const CATEGORIES = [
+    {
+        id: 'generell',
+        label: 'Genreller Support',
+        emoji: '❓  ',
+        channelId: '1549062504250871838'
+    },
+    {
+        id: 'bestellung',
+        label: 'Bestellung',
+        emoji: '📦',
+        channelId: '1549438597479006288'
+    },
+    {
+        id: 'technik',
+        label: 'Technisches Problem',
+        emoji: '🛠️',
+        channelId: '1549439103706210457'
+    },
+    {
+        id: 'bewerbung',
+        label: 'Bewerbung',
+        emoji: '📋',
+        channelId: '1549439141362667702'
+    }
+];
 
-function loadConfig() {
-  if (!fs.existsSync(configFile)) {
-    fs.writeFileSync(configFile, JSON.stringify({}));
-  }
-  return JSON.parse(fs.readFileSync(configFile, "utf8"));
+// Cache: userId -> threadId (unabhängig von Kategorie – pro User max. 1 Ticket)
+const userThreads = new Map();
+
+// Warteschlange: userId -> erste Nachricht des Users (bevor Kategorie gewählt wurde)
+const pendingMessages = new Map();
+
+function getUserIdFromThread(thread) {
+    const match = thread.name.match(/\[(\d+)\]/);
+    return match ? match[1] : null;
 }
 
-function saveConfig(config) {
-  fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+function getCategoryChannels() {
+    return CATEGORIES.map(c => c.channelId);
 }
 
-async function updateMemberCount(guild) {
-  const config = loadConfig();
-  if (!config.counterChannelId) return;
+client.on('clientReady', async () => {
+    console.log(`✅ ${client.user.tag} ist online!`);
 
-  const channel = guild.channels.cache.get(config.counterChannelId);
-  if (!channel) return;
+    // Threads aus ALLEN Kategorie-Channels laden
+    for (const cat of CATEGORIES) {
+        try {
+            const channel = await client.channels.fetch(cat.channelId);
+            if (!channel) continue;
 
-  await channel.setName(`👥│ Mitglieder: ${guild.memberCount}`).catch(() => {});
-}
+            const active = await channel.threads.fetchActive();
+            const archived = await channel.threads.fetchArchived();
 
-// --- Funktion: Rollmenü erstellen oder updaten ---
-async function createRoleMenu(interaction, input) {
-  const entries = input.split(",").map(e => e.trim());
-
-  // Neue Rollen aus dem Input parsen
-  const newRoles = {};
-  const newLines = [];
-  const newEmojis = [];
-
-  for (const entry of entries) {
-    const [emoji, roleId] = entry.split(":").map(s => s.trim());
-    if (!emoji || !roleId) continue;
-
-    const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
-    const roleName = role ? role.name : "❌ Unbekannte Rolle";
-
-    newRoles[emoji] = roleId;
-    newLines.push({ emoji, roleName });
-    newEmojis.push(emoji);
-  }
-
-  if (newLines.length === 0) {
-    await interaction.reply({
-      content: "⚠️ Keine gültigen Rollen gefunden. Format: `emoji:rolle_id` (durch Komma trennen)",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const config = loadConfig();
-  config.roleMenus = config.roleMenus || {};
-
-  // Schauen, ob es schon ein Role-Menu gibt
-  const existingMsgId = config.roleMenuMessageId;
-  const existingChannelId = config.roleMenuChannelId;
-
-  let roleMap = {};
-  let allLines = [...newLines]; // neu dazu kommende Rollen
-
-  if (existingMsgId && existingChannelId) {
-    // Altes Role-Menu laden
-    roleMap = config.roleMenus[existingMsgId] || {};
-
-    // Alte Rollen in die Anzeige aufnehmen (falls sie nicht neu dabei sind)
-    for (const [oldEmoji, oldRoleId] of Object.entries(roleMap)) {
-      if (!newRoles[oldEmoji]) {
-        const oldRole = await interaction.guild.roles.fetch(oldRoleId).catch(() => null);
-        const oldRoleName = oldRole ? oldRole.name : "❌ Unbekannte Rolle";
-        allLines.unshift({ emoji: oldEmoji, roleName: oldRoleName });
-      }
+            [...active.threads.values(), ...archived.threads.values()].forEach(thread => {
+                const userId = getUserIdFromThread(thread);
+                if (userId && !userThreads.has(userId)) {
+                    userThreads.set(userId, thread.id);
+                }
+            });
+        } catch (e) {
+            console.error(`⚠️ Konnte Channel für "${cat.label}" nicht laden:`, e.message);
+        }
     }
 
-    // Neue Rollen ins bestehende roleMap mergen
-    Object.assign(roleMap, newRoles);
+    console.log(`🔄 ${userThreads.size} Threads geladen`);
+});
 
-    // Alte Nachricht updaten
-    const channel = await interaction.guild.channels.fetch(existingChannelId).catch(() => null);
-    if (channel) {
-      const oldMsg = await channel.messages.fetch(existingMsgId).catch(() => null);
-      if (oldMsg) {
-        // Container neu bauen mit ALLEN Rollen
-        const container = new ContainerBuilder()
-          .setAccentColor(0x6d4aff)
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-              "## Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
-            )
-          )
-          .addSeparatorComponents(
-            new SeparatorBuilder()
-              .setDivider(true)
-              .setSpacing(SeparatorSpacingSize.Small)
-          )
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-              allLines.map(l => `${l.emoji} — **${l.roleName}**`).join("\n")
-            )
-          );
+// ⭐ 1. DM vom User → Thread (falls Ticket offen) oder Kategorie-Auswahl
+client.on('messageCreate', async (message) => {
+    if (message.guild || message.author.bot) return;
 
-        await oldMsg.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
+    const userId = message.author.id;
 
-        // Nur NEUE Emojis hinzufügen (alte sind ja schon drauf)
-        for (const emoji of newEmojis) {
-          await oldMsg.react(emoji).catch((err) =>
-            console.error(`Konnte nicht mit ${emoji} reagieren:`, err.message)
-          );
+    try {
+        let thread = null;
+        const threadId = userThreads.get(userId);
+
+        if (threadId) {
+            try {
+                thread = await client.channels.fetch(threadId);
+                if (thread.archived) await thread.setArchived(false);
+            } catch {
+                thread = null;
+            }
         }
 
-        // Config updaten
-        config.roleMenus[existingMsgId] = roleMap;
-        saveConfig(config);
+        // ⭐ KEIN offenes Ticket → Kategorie-Auswahl mit Buttons
+        if (!thread) {
+            // Erste Nachricht für später parken
+            pendingMessages.set(userId, message);
 
-        await interaction.reply({
-          content: `✅ Role-Menu aktualisiert! ${newEmojis.length} neue Rolle(n) hinzugefügt.`,
-          flags: MessageFlags.Ephemeral,
+            // Buttons bauen (max. 5 pro Reihe!)
+            const buttons = CATEGORIES.map(cat =>
+                new ButtonBuilder()
+                    .setCustomId(`cat_${cat.id}`)
+                    .setLabel(cat.label)
+                    .setEmoji(cat.emoji)
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+            const row = new ActionRowBuilder().addComponents(buttons);
+
+            const selectEmbed = new EmbedBuilder()
+                .setColor('#6d4aff')
+                .setTitle('📨 Support-Anfrage erhalten!')
+                .setDescription(
+                    `Wähle bitte eine Kategorie aus, damit dein Anliegen beim richtigen Team landet 👇\n\n` +
+                    `Deine Nachricht wird nach der Auswahl automatisch weitergeleitet.`
+                )
+                .setFooter({ text: 'ℹ️ Pro User ist nur ein offenes Ticket möglich' })
+                .setTimestamp();
+
+            await message.reply({ embeds: [selectEmbed], components: [row] });
+            return; // Nachricht geht erst nach der Kategorie-Wahl raus
+        }
+
+        // Offenes Ticket → normale Nachricht in den Thread
+        const embed = new EmbedBuilder()
+            .setColor('#6d4aff')
+            .setAuthor({
+                name: message.author.tag,
+                iconURL: message.author.displayAvatarURL()
+            })
+            .setDescription(message.content || '*Kein Textinhalt*')
+            .setTimestamp();
+
+        await thread.send({ embeds: [embed] });
+
+        if (message.attachments.size > 0) {
+            const files = message.attachments.map(att => ({
+                attachment: att.url,
+                name: att.name || 'attachment'
+            }));
+            await thread.send({ files });
+        }
+
+        await message.react('📨');
+
+    } catch (error) {
+        console.error('❌ Fehler:', error);
+        await message.react('⚠️').catch(() => {});
+    }
+});
+
+// ⭐ 2. Button-Klick → Thread in Kategorie-Channel erstellen
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isButton()) return;
+    if (!interaction.customId.startsWith('cat_')) return;
+
+    const category = CATEGORIES.find(c => `cat_${c.id}` === interaction.customId);
+    if (!category) return;
+
+    const userId = interaction.user.id;
+
+    // Falls inzwischen doch schon ein Ticket existiert
+    if (userThreads.has(userId)) {
+        return interaction.reply({
+            content: '⚠️ Du hast bereits ein offenes Ticket! Schreib einfach weiter per DM.',
+            ephemeral: true
         });
-        return;
-      }
-    }
-    // Falls die alte Nachricht nicht gefunden wurde → neue erstellen (fallback unten)
-  }
-
-  // --- Neue Nachricht erstellen (erster Aufruf oder Fallback) ---
-  roleMap = newRoles;
-
-  const container = new ContainerBuilder()
-    .setAccentColor(0x6d4aff)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        "## Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
-      )
-    )
-    .addSeparatorComponents(
-      new SeparatorBuilder()
-        .setDivider(true)
-        .setSpacing(SeparatorSpacingSize.Small)
-    )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        allLines.map(l => `${l.emoji} — **${l.roleName}**`).join("\n")
-      )
-    );
-
-  await interaction.reply({
-    components: [container],
-    flags: MessageFlags.IsComponentsV2,
-  });
-
-  const msg = await interaction.fetchReply();
-
-  // Config speichern
-  config.roleMenuMessageId = msg.id;
-  config.roleMenuChannelId = interaction.channelId;
-  config.roleMenus[msg.id] = roleMap;
-  saveConfig(config);
-
-  // Alle Emojis hinzufügen (erste Nachricht → alle sind neu)
-  for (const emoji of newEmojis) {
-    await msg.react(emoji).catch((err) =>
-      console.error(`Konnte nicht mit ${emoji} reagieren:`, err.message)
-    );
-  }
-
-  await interaction.followUp({
-    content: `✅ Role-Menu erstellt! ${newEmojis.length} Rolle(n) hinzugefügt.`,
-    flags: MessageFlags.Ephemeral,
-  });
-}
-
-// --- Commands definieren ---
-const commands = [
-  new SlashCommandBuilder()
-    .setName("setwelcome")
-    .setDescription("Legt den Willkommens-Channel fest")
-    .addChannelOption((option) =>
-      option
-        .setName("channel")
-        .setDescription("Der Channel für Willkommens-Nachrichten")
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName("setcounter")
-    .setDescription("Legt den Voice-Channel für den Member-Counter fest")
-    .addChannelOption((option) =>
-      option
-        .setName("channel")
-        .setDescription("Der Voice-Channel für den Member-Counter")
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName("rolemenu")
-    .setDescription("Erstellt ein Role-Menu mit Reactions")
-    .addStringOption((option) =>
-      option
-        .setName("rollen")
-        .setDescription("Format: emoji:rolle_id (durch Komma trennen)")
-        .setRequired(true)
-    ),
-      new SlashCommandBuilder()
-    .setName("chatdelete")
-    .setDescription("Löscht ALLE Nachrichten aus einem Channel")
-    .addStringOption((option) =>
-      option
-        .setName("channel_id")
-        .setDescription("Die ID des Channels, der geleert werden soll")
-        .setRequired(true)
-    ),
-
-  new SlashCommandBuilder()
-    .setName("say")
-    .setDescription("Bot sagt etwas in einem Channel")
-    .addStringOption((option) =>
-      option
-        .setName("text")
-        .setDescription("Was der Bot sagen soll")
-        .setRequired(true)
-    )
-    .addChannelOption((option) =>
-      option
-        .setName("channel")
-        .setDescription("Ziel-Channel (optional, sonst aktueller Channel)")
-    ),
-    new SlashCommandBuilder()
-    .setName("update")
-    .setDescription("Aktualisiert alle Daten")
-].map((command) => command.toJSON());
-
-// --- Commands registrieren ---
-const rest = new REST().setToken(process.env.DISCORD_TOKEN);
-
-(async () => {
-  try {
-    await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID
-      ),
-      { body: commands }
-    );
-    console.log("Slash Commands für deinen Server registriert!");
-  } catch (error) {
-    console.error(error);
-  }
-})();
-
-// --- Event: Bot bereit ---
-client.once("clientReady", () => {
-  console.log(`Bot ist online als ${client.user.tag}`);
-});
-
-// --- Event: Interaction ---
-client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  if (interaction.commandName === "setwelcome") {
-    const channel = interaction.options.getChannel("channel");
-    const config = loadConfig();
-    config.welcomeChannelId = channel.id;
-    saveConfig(config);
-
-    const container = new ContainerBuilder()
-      .setAccentColor(0x6d4aff)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## Willkommens-Channel gesetzt\n\nAb jetzt werden Willkommens-Nachrichten in ${channel} gesendet.`
-        )
-      );
-
-    await interaction.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-    });
-  }
-
-  if (interaction.commandName === "setcounter") {
-    const channel = interaction.options.getChannel("channel");
-    const config = loadConfig();
-    config.counterChannelId = channel.id;
-    saveConfig(config);
-
-    const container = new ContainerBuilder()
-      .setAccentColor(0x6d4aff)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## Counter-Channel gesetzt\n\nDer Member-Counter ist jetzt in ${channel} aktiv.`
-        )
-      );
-
-    await interaction.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-    });
-  }
-
-  if (interaction.commandName === "rolemenu") {
-    const input = interaction.options.getString("rollen");
-    await createRoleMenu(interaction, input);
-  }
-
-    if (interaction.commandName === "chatdelete") {
-    // Nur Admins dürfen das
-    if (!interaction.member.permissions.has("ManageMessages")) {
-      await interaction.reply({
-        content: "❌ Du brauchst die Berechtigung **Nachrichten verwalten**!",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
     }
 
-    const channelId = interaction.options.getString("channel_id");
-    const channel = await interaction.guild.channels
-      .fetch(channelId)
-      .catch(() => null);
+    await interaction.deferUpdate().catch(() => {});
 
-    if (!channel || !channel.isTextBased()) {
-      await interaction.reply({
-        content: "❌ Channel nicht gefunden (oder keine Text-Channel-ID).",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
+    const firstMessage = pendingMessages.get(userId);
+    pendingMessages.delete(userId);
 
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-    let deleted = 0;
-    // Discord erlaubt nur 100 pro Aufruf → in Schleifen löschen
-    while (true) {
-      const batch = await channel.bulkDelete(100, true).catch(() => null);
-      if (!batch || batch.size === 0) break;
-      deleted += batch.size;
-    }
-
-    await interaction.editReply(
-      `🗑️ **${deleted}** Nachrichten aus ${channel} gelöscht!`
-    );
-  }
-
-  if (interaction.commandName === "say") {
-    const text = interaction.options.getString("text");
-    const targetChannel =
-      interaction.options.getChannel("channel") || interaction.channel;
-
-    await targetChannel.send({ content: text }).catch((err) => {
-      console.error("Senden fehlgeschlagen:", err.message);
-    });
-
-    await interaction.reply({
-      content: `✅ Nachricht in ${targetChannel} gesendet.`,
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
-    if (interaction.commandName === "update") {
-
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## 🔄 Update abgeschlossen\n\nDer Member-Counter wurde aktualisiert.`
-        )
-      );
-
-    await interaction.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-    });
-  }
-});
-
-// --- Event: Reaktion hinzufügen ---
-client.on("messageReactionAdd", async (reaction, user) => {
-  if (user.bot) return;
-
-  if (reaction.partial) {
     try {
-      await reaction.fetch();
-    } catch {
-      return;
+        const parentChannel = await client.channels.fetch(category.channelId);
+
+        const thread = await parentChannel.threads.create({
+            name: `${category.emoji} ${category.label} - ${interaction.user.username} [${userId}]`,
+            autoArchiveDuration: 1440,
+            reason: `Support-Ticket (${category.label}) von ${interaction.user.tag}`
+        });
+        userThreads.set(userId, thread.id);
+
+        // Intro-Embed im Thread
+        const introEmbed = new EmbedBuilder()
+            .setColor('#00cc66')
+            .setTitle(`📨 Neue Support-Anfrage — ${category.label}`)
+            .setDescription(
+                `**Nutzer:** ${interaction.user}\n` +
+                `**User-ID:** \`${userId}\`\n` +
+                `**Kategorie:** ${category.emoji} ${category.label}\n\n` +
+                `↩️ Antworte einfach hier im Thread – der User bekommt die Nachricht per DM.`
+            )
+            .setThumbnail(interaction.user.displayAvatarURL())
+            .setTimestamp();
+
+        await thread.send({ embeds: [introEmbed] });
+
+        // Die ursprüngliche erste Nachricht des Users einfügen
+        if (firstMessage) {
+            const msgEmbed = new EmbedBuilder()
+                .setColor('#6d4aff')
+                .setAuthor({
+                    name: firstMessage.author.tag,
+                    iconURL: firstMessage.author.displayAvatarURL()
+                })
+                .setDescription(firstMessage.content || '*Kein Textinhalt*')
+                .setTimestamp();
+
+            await thread.send({ embeds: [msgEmbed] });
+
+            if (firstMessage.attachments.size > 0) {
+                const files = firstMessage.attachments.map(att => ({
+                    attachment: att.url,
+                    name: att.name || 'attachment'
+                }));
+                await thread.send({ files });
+            }
+
+            await firstMessage.react('📨').catch(() => {});
+
+        } else {
+            // User hat nur den Button gedrückt, ohne vorher geschrieben zu haben
+            const emptyEmbed = new EmbedBuilder()
+                .setColor('#6d4aff')
+                .setAuthor({
+                    name: interaction.user.tag,
+                    iconURL: interaction.user.displayAvatarURL()
+                })
+                .setDescription('*Ticket über Kategorieauswahl geöffnet*')
+                .setTimestamp();
+            await thread.send({ embeds: [emptyEmbed] });
+        }
+
+        // Bestätigung per DM an den User
+        const confirmEmbed = new EmbedBuilder()
+            .setColor('#00cc66')
+            .setTitle('✅ Ticket erstellt!')
+            .setDescription(
+                `Dein Ticket wurde in **${category.label}** eröffnet.\n\n` +
+                `Schreibe einfach weiter hier in den DMs – alle Nachrichten landen im Ticket.`
+            )
+            .setTimestamp();
+
+        await interaction.user.send({ embeds: [confirmEmbed] }).catch(() => {});
+
+    } catch (error) {
+        console.error('❌ Fehler beim Kategorie-Thread:', error);
+        await interaction.user.send('⚠️ Da ist was schiefgelaufen. Bitte versuch es später erneut.')
+            .catch(() => {});
     }
-  }
-
-  const config = loadConfig();
-  const roleMap = config.roleMenus?.[reaction.message.id];
-  if (!roleMap) return;
-
-  const roleId = roleMap[reaction.emoji.name];
-  if (!roleId) return;
-
-  const guild = reaction.message.guild;
-  const member = await guild.members.fetch(user.id).catch(() => null);
-  if (!member) return;
-
-  await member.roles.add(roleId).catch(console.error);
 });
 
-// --- Event: Reaktion entfernen ---
-client.on("messageReactionRemove", async (reaction, user) => {
-  if (user.bot) return;
+// ⭐ 3. Antwort im Thread → DM an den User (funktioniert für ALLE Kategorien)
+client.on('messageCreate', async (message) => {
+    if (!message.channel.isThread()) return;
+    if (!getCategoryChannels().includes(message.channel.parentId)) return;
+    if (message.author.bot) return;
 
-  if (reaction.partial) {
+    const userId = getUserIdFromThread(message.channel);
+    if (!userId) {
+        return console.warn('⚠️ Keine User-ID im Thread-Namen:', message.channel.name);
+    }
+
     try {
-      await reaction.fetch();
-    } catch {
-      return;
+        const user = await client.users.fetch(userId);
+
+        const embed = new EmbedBuilder()
+            .setColor('#6d4aff')
+            .setTitle('📩 Antwort vom Support')
+            .setDescription(message.content || '*Kein Textinhalt*')
+            .setFooter({ text: 'Antworte einfach direkt hier per DM' })
+            .setTimestamp();
+
+        if (message.attachments.size > 0) {
+            embed.setImage(message.attachments.first().url);
+        }
+
+        await user.send({ embeds: [embed] });
+        await message.react('📨');
+
+    } catch (e) {
+        console.error('DM fehlgeschlagen:', e.message);
+        message.reply('⚠️ Konnte dem User keine DM schicken (evtl. DMs blockiert).');
     }
-  }
-
-  const config = loadConfig();
-  const roleMap = config.roleMenus?.[reaction.message.id];
-  if (!roleMap) return;
-
-  const roleId = roleMap[reaction.emoji.name];
-  if (!roleId) return;
-
-  const guild = reaction.message.guild;
-  const member = await guild.members.fetch(user.id).catch(() => null);
-  if (!member) return;
-
-  await member.roles.remove(roleId).catch(console.error);
 });
 
-// --- Event: Mitglied kommt ---
-client.on("guildMemberAdd", async (member) => {
-  const config = loadConfig();
-  const channelId = config.welcomeChannelId;
-  if (!channelId) return;
-
-  const channel = member.guild.channels.cache.get(channelId);
-  if (!channel) return;
-
-  const container = new ContainerBuilder()
-    .setAccentColor(0x6d4aff)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `## 👋 Willkommen, ${member}!`
-      )
-    )
-    .addSeparatorComponents(
-      new SeparatorBuilder()
-        .setDivider(true)
-        .setSpacing(SeparatorSpacingSize.Small)
-    )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `-# Mitglied seit: <t:${Math.floor(Date.now() / 1000)}:R>`
-      )
-    );
-
-  await channel.send({
-    components: [container],
-    flags: MessageFlags.IsComponentsV2,
-  });
-});
-// --- Event: Mitglied geht ---
-client.on("guildMemberRemove", (member) => {
-  // Optional: Counter aktualisieren, falls du das noch brauchst
-});
 client.login(process.env.DISCORD_TOKEN);
