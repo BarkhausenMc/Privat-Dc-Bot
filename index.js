@@ -15,7 +15,7 @@ const client = new Client({
 // custom_id → nur Kleinbuchstaben & Unterstriche
 const CATEGORIES = [
     {
-        id: 'generell',
+        id: 'generel',
         label: 'Genreller Support',
         emoji: '❓  ',
         channelId: '1549062504250871838'
