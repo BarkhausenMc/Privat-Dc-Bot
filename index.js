@@ -165,7 +165,7 @@ client.on('guildMemberRemove', member => {
   }, 2000);
 });
 
-async function sendVoiceLog(guild, title, details) {
+async function sendVoiceLog(guild, title, details, color = 0x8A2BE2) {
   const logChannelId = process.env.VOICE_LOG_CHANNEL_ID;
 
   if (!logChannelId) return;
@@ -175,7 +175,8 @@ async function sendVoiceLog(guild, title, details) {
   if (!logChannel || !logChannel.isTextBased()) return;
 
   const voiceContainer = new ContainerBuilder()
-    .addTextDisplayComponents(
+  .setAccentColor(color)
+  .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `## ${title}`
       )
@@ -191,7 +192,7 @@ async function sendVoiceLog(guild, title, details) {
     )
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        '||PHOENIX VOICE LOG SYSTEM||'
+        '-# PHOENIX VOICE LOG SYSTEM'
       )
     );
 
@@ -213,20 +214,22 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (!oldChannel && newChannel) {
       await sendVoiceLog(
         newState.guild,
-        `🟢 Voice Channel betreten: ${member.user.tag}`,
+        `🟢 Voice Channel betreten von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
         `> 📥 **Channel:** ${newChannel.name}\n` +
         `> 🆔 **User-ID:** ${member.id}\n` +
         `> 🕒 **Zeitpunkt:** ${timestamp}`, 
+        0x2ECC71
       );
     } else if (oldChannel && !newChannel) {
       await sendVoiceLog(
         oldState.guild,
-        `🔴 Voice Channel verlassen: ${member.user.tag}`,
+        `🔴 Voice Channel verlassen von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
         `> 📤 **Channel:** ${oldChannel.name}\n` +
         `> 🆔 **User-ID:** ${member.id}\n` +
         `> 🕒 **Zeitpunkt:** ${timestamp}`, 
+        0xE74C3C
       );
     } else if (
       oldChannel &&
@@ -235,12 +238,13 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     ) {
       await sendVoiceLog(
         newState.guild,
-        `🟣 Voice Channel gewechselt: ${member.user.tag}`,
+        `🟡 Voice Channel gewechselt von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
         `> 📤 **Von:** ${oldChannel.name}\n` +
         `> 📥 **Zu:** ${newChannel.name}\n` +
         `> 🆔 **User-ID:** ${member.id}\n` +
         `> 🕒 **Zeitpunkt:** ${timestamp}`, 
+        0xF1C40F
       );
     }
   } catch (error) {
