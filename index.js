@@ -1,486 +1,141 @@
+require('dotenv').config();
+
 const {
   Client,
   GatewayIntentBits,
-  Partials,
-  SlashCommandBuilder,
-  REST,
-  Routes,
-  MessageFlags,
+  ChannelType,
   ContainerBuilder,
   TextDisplayBuilder,
   SeparatorBuilder,
-  SeparatorSpacingSize,
-} = require("discord.js");
-const fs = require("fs");
-require("dotenv").config();
+  MessageFlags,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ButtonStyle,
+  TextDisplayComponent,
+  Sweepers
+} = require('discord.js');
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMessageReactions,
-  ],
-  partials: [Partials.Message, Partials.Reaction, Partials.User],
+    GatewayIntentBits.GuildMembers
+  ]
 });
-
-const configFile = "./config.json";
-
-function loadConfig() {
-  if (!fs.existsSync(configFile)) {
-    fs.writeFileSync(configFile, JSON.stringify({}));
-  }
-  return JSON.parse(fs.readFileSync(configFile, "utf8"));
-}
-
-function saveConfig(config) {
-  fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
-}
 
 async function updateMemberCount(guild) {
-  const config = loadConfig();
-  if (!config.counterChannelId) return;
-
-  const channel = guild.channels.cache.get(config.counterChannelId);
-  if (!channel) return;
-
-  await channel.setName(`👥│ Mitglieder: ${guild.memberCount}`).catch(() => {});
-}
-
-// --- Funktion: Rollmenü erstellen oder updaten ---
-async function createRoleMenu(interaction, input) {
-  const entries = input.split(",").map(e => e.trim());
-
-  // Neue Rollen aus dem Input parsen
-  const newRoles = {};
-  const newLines = [];
-  const newEmojis = [];
-
-  for (const entry of entries) {
-    const [emoji, roleId] = entry.split(":").map(s => s.trim());
-    if (!emoji || !roleId) continue;
-
-    const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
-    const roleName = role ? role.name : "❌ Unbekannte Rolle";
-
-    newRoles[emoji] = roleId;
-    newLines.push({ emoji, roleName });
-    newEmojis.push(emoji);
-  }
-
-  if (newLines.length === 0) {
-    await interaction.reply({
-      content: "⚠️ Keine gültigen Rollen gefunden. Format: `emoji:rolle_id` (durch Komma trennen)",
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const config = loadConfig();
-  config.roleMenus = config.roleMenus || {};
-
-  // Schauen, ob es schon ein Role-Menu gibt
-  const existingMsgId = config.roleMenuMessageId;
-  const existingChannelId = config.roleMenuChannelId;
-
-  let roleMap = {};
-  let allLines = [...newLines]; // neu dazu kommende Rollen
-
-  if (existingMsgId && existingChannelId) {
-    // Altes Role-Menu laden
-    roleMap = config.roleMenus[existingMsgId] || {};
-
-    // Alte Rollen in die Anzeige aufnehmen (falls sie nicht neu dabei sind)
-    for (const [oldEmoji, oldRoleId] of Object.entries(roleMap)) {
-      if (!newRoles[oldEmoji]) {
-        const oldRole = await interaction.guild.roles.fetch(oldRoleId).catch(() => null);
-        const oldRoleName = oldRole ? oldRole.name : "❌ Unbekannte Rolle";
-        allLines.unshift({ emoji: oldEmoji, roleName: oldRoleName });
-      }
-    }
-
-    // Neue Rollen ins bestehende roleMap mergen
-    Object.assign(roleMap, newRoles);
-
-    // Alte Nachricht updaten
-    const channel = await interaction.guild.channels.fetch(existingChannelId).catch(() => null);
-    if (channel) {
-      const oldMsg = await channel.messages.fetch(existingMsgId).catch(() => null);
-      if (oldMsg) {
-        // Container neu bauen mit ALLEN Rollen
-        const container = new ContainerBuilder()
-          .setAccentColor(0x6d4aff)
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-              "## Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
-            )
-          )
-          .addSeparatorComponents(
-            new SeparatorBuilder()
-              .setDivider(true)
-              .setSpacing(SeparatorSpacingSize.Small)
-          )
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-              allLines.map(l => `${l.emoji} — **${l.roleName}**`).join("\n")
-            )
-          );
-
-        await oldMsg.edit({ components: [container], flags: MessageFlags.IsComponentsV2 });
-
-        // Nur NEUE Emojis hinzufügen (alte sind ja schon drauf)
-        for (const emoji of newEmojis) {
-          await oldMsg.react(emoji).catch((err) =>
-            console.error(`Konnte nicht mit ${emoji} reagieren:`, err.message)
-          );
-        }
-
-        // Config updaten
-        config.roleMenus[existingMsgId] = roleMap;
-        saveConfig(config);
-
-        await interaction.reply({
-          content: `✅ Role-Menu aktualisiert! ${newEmojis.length} neue Rolle(n) hinzugefügt.`,
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-    }
-    // Falls die alte Nachricht nicht gefunden wurde → neue erstellen (fallback unten)
-  }
-
-  // --- Neue Nachricht erstellen (erster Aufruf oder Fallback) ---
-  roleMap = newRoles;
-
-  const container = new ContainerBuilder()
-    .setAccentColor(0x6d4aff)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        "## Rolle auswählen\nReagiere mit einem Emoji, um eine Rolle zu erhalten oder zu entfernen."
-      )
-    )
-    .addSeparatorComponents(
-      new SeparatorBuilder()
-        .setDivider(true)
-        .setSpacing(SeparatorSpacingSize.Small)
-    )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        allLines.map(l => `${l.emoji} — **${l.roleName}**`).join("\n")
-      )
-    );
-
-  await interaction.reply({
-    components: [container],
-    flags: MessageFlags.IsComponentsV2,
-  });
-
-  const msg = await interaction.fetchReply();
-
-  // Config speichern
-  config.roleMenuMessageId = msg.id;
-  config.roleMenuChannelId = interaction.channelId;
-  config.roleMenus[msg.id] = roleMap;
-  saveConfig(config);
-
-  // Alle Emojis hinzufügen (erste Nachricht → alle sind neu)
-  for (const emoji of newEmojis) {
-    await msg.react(emoji).catch((err) =>
-      console.error(`Konnte nicht mit ${emoji} reagieren:`, err.message)
-    );
-  }
-
-  await interaction.followUp({
-    content: `✅ Role-Menu erstellt! ${newEmojis.length} Rolle(n) hinzugefügt.`,
-    flags: MessageFlags.Ephemeral,
-  });
-}
-
-// --- Commands definieren ---
-const commands = [
-  new SlashCommandBuilder()
-    .setName("setwelcome")
-    .setDescription("Legt den Willkommens-Channel fest")
-    .addChannelOption((option) =>
-      option
-        .setName("channel")
-        .setDescription("Der Channel für Willkommens-Nachrichten")
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName("setcounter")
-    .setDescription("Legt den Voice-Channel für den Member-Counter fest")
-    .addChannelOption((option) =>
-      option
-        .setName("channel")
-        .setDescription("Der Voice-Channel für den Member-Counter")
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName("rolemenu")
-    .setDescription("Erstellt ein Role-Menu mit Reactions")
-    .addStringOption((option) =>
-      option
-        .setName("rollen")
-        .setDescription("Format: emoji:rolle_id (durch Komma trennen)")
-        .setRequired(true)
-    ),
-      new SlashCommandBuilder()
-    .setName("chatdelete")
-    .setDescription("Löscht ALLE Nachrichten aus einem Channel")
-    .addStringOption((option) =>
-      option
-        .setName("channel_id")
-        .setDescription("Die ID des Channels, der geleert werden soll")
-        .setRequired(true)
-    ),
-
-  new SlashCommandBuilder()
-    .setName("say")
-    .setDescription("Bot sagt etwas in einem Channel")
-    .addStringOption((option) =>
-      option
-        .setName("text")
-        .setDescription("Was der Bot sagen soll")
-        .setRequired(true)
-    )
-    .addChannelOption((option) =>
-      option
-        .setName("channel")
-        .setDescription("Ziel-Channel (optional, sonst aktueller Channel)")
-    ),
-    new SlashCommandBuilder()
-    .setName("update")
-    .setDescription("Aktualisiert alle Daten")
-].map((command) => command.toJSON());
-
-// --- Commands registrieren ---
-const rest = new REST().setToken(process.env.DISCORD_TOKEN);
-
-(async () => {
   try {
-    await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID
-      ),
-      { body: commands }
+    if (!guild) return;
+
+    const channel = await guild.channels.fetch(
+      process.env.MEMBER_COUNT_CHANNEL_ID
     );
-    console.log("Slash Commands für deinen Server registriert!");
+
+    if (!channel) return;
+
+    const isVoice =
+      channel.type === ChannelType.GuildVoice ||
+      channel.type === ChannelType.GuildStageVoice;
+
+    if (!isVoice) return;
+
+    const name = `👥・Members: ${guild.memberCount}`;
+
+    if (channel.name !== name) {
+      await channel.setName(name);
+    }
+
   } catch (error) {
-    console.error(error);
+    console.error('Fehler beim Aktualisieren des Member Counters:', error);
   }
-})();
+}
 
-// --- Event: Bot bereit ---
-client.once("clientReady", () => {
-  console.log(`Bot ist online als ${client.user.tag}`);
-});
+const chalk = (await import('chalk')).default;
 
-// --- Event: Interaction ---
-client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
+client.once('clientReady', async () => {
+  console.clear();
 
-  if (interaction.commandName === "setwelcome") {
-    const channel = interaction.options.getChannel("channel");
-    const config = loadConfig();
-    config.welcomeChannelId = channel.id;
-    saveConfig(config);
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    const container = new ContainerBuilder()
-      .setAccentColor(0x6d4aff)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## Willkommens-Channel gesetzt\n\nAb jetzt werden Willkommens-Nachrichten in ${channel} gesendet.`
-        )
-      );
+  const phoenix = [
+    '██████╗ ██╗  ██╗ ██████╗ ███████╗███╗   ██╗██╗██╗  ██╗',
+    '██╔══██╗██║  ██║██╔═══██╗██╔════╝████╗  ██║██║╚██╗██╔╝',
+    '██████╔╝███████║██║   ██║█████╗  ██╔██╗ ██║██║ ╚███╔╝ ',
+    '██╔═══╝ ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║██║ ██╔██╗ ',
+    '██║     ██║  ██║╚██████╔╝███████╗██║ ╚████║██║██╔╝ ██╗',
+    '╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝'
+  ];
 
-    await interaction.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-    });
-  }
+  const colors = [
+    chalk.hex('#ff4500'),
+    chalk.hex('#ff6600'),
+    chalk.hex('#ff8c00'),
+    chalk.hex('#ffaa00'),
+    chalk.hex('#ff6600'),
+    chalk.hex('#ff4500')
+  ];
 
-  if (interaction.commandName === "setcounter") {
-    const channel = interaction.options.getChannel("channel");
-    const config = loadConfig();
-    config.counterChannelId = channel.id;
-    saveConfig(config);
+  console.log('\n');
 
-    const container = new ContainerBuilder()
-      .setAccentColor(0x6d4aff)
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## Counter-Channel gesetzt\n\nDer Member-Counter ist jetzt in ${channel} aktiv.`
-        )
-      );
-
-    await interaction.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-    });
+  for (let i = 0; i < phoenix.length; i++) {
+    console.log(colors[i](phoenix[i]));
+    await sleep(100);
   }
 
-  if (interaction.commandName === "rolemenu") {
-    const input = interaction.options.getString("rollen");
-    await createRoleMenu(interaction, input);
-  }
+  console.log('');
+  console.log(chalk.hex('#ff6600')('       🔥 P H O E N I X   B O T 🔥'));
+  console.log('');
 
-    if (interaction.commandName === "chatdelete") {
-    // Nur Admins dürfen das
-    if (!interaction.member.permissions.has("ManageMessages")) {
-      await interaction.reply({
-        content: "❌ Du brauchst die Berechtigung **Nachrichten verwalten**!",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
-    const channelId = interaction.options.getString("channel_id");
-    const channel = await interaction.guild.channels
-      .fetch(channelId)
-      .catch(() => null);
-
-    if (!channel || !channel.isTextBased()) {
-      await interaction.reply({
-        content: "❌ Channel nicht gefunden (oder keine Text-Channel-ID).",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-    let deleted = 0;
-    // Discord erlaubt nur 100 pro Aufruf → in Schleifen löschen
-    while (true) {
-      const batch = await channel.bulkDelete(100, true).catch(() => null);
-      if (!batch || batch.size === 0) break;
-      deleted += batch.size;
-    }
-
-    await interaction.editReply(
-      `🗑️ **${deleted}** Nachrichten aus ${channel} gelöscht!`
+  for (let i = 0; i < 20; i++) {
+    process.stdout.write(
+      `\r${chalk.hex('#ff8c00')(frames[i % frames.length])} ${chalk.white('Initializing Phoenix systems...')}`
     );
+    await sleep(100);
   }
 
-  if (interaction.commandName === "say") {
-    const text = interaction.options.getString("text");
-    const targetChannel =
-      interaction.options.getChannel("channel") || interaction.channel;
+  console.log('\r' + chalk.green('✔ Phoenix systems initialized!       '));
+  console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+  console.log(chalk.green('  ✔ ') + chalk.white(`Logged in as: ${client.user.tag}`));
+  console.log(chalk.green('  ✔ ') + chalk.white('Discord connection established'));
+  console.log(chalk.green('  ✔ ') + chalk.white('Member counter initialized'));
+  console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+  console.log(chalk.hex('#ff6600')('          🚀 PHOENIX BOT ONLINE 🚀'));
+  console.log('\n');
 
-    await targetChannel.send({ content: text }).catch((err) => {
-      console.error("Senden fehlgeschlagen:", err.message);
-    });
+  const guild = client.guilds.cache.first();
 
-    await interaction.reply({
-      content: `✅ Nachricht in ${targetChannel} gesendet.`,
-      flags: MessageFlags.Ephemeral,
-    });
+  if (guild) {
+    await updateMemberCount(guild);
   }
 
-    if (interaction.commandName === "update") {
-
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `## 🔄 Update abgeschlossen\n\nDer Member-Counter wurde aktualisiert.`
-        )
-      );
-
-    await interaction.reply({
-      components: [container],
-      flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-    });
-  }
-});
-
-// --- Event: Reaktion hinzufügen ---
-client.on("messageReactionAdd", async (reaction, user) => {
-  if (user.bot) return;
-
-  if (reaction.partial) {
-    try {
-      await reaction.fetch();
-    } catch {
-      return;
+  setInterval(() => {
+    if (guild) {
+      updateMemberCount(guild);
     }
+  }, 60000);
+});
+
+client.on('guildMemberAdd', async (member) => {
+
+  try {
+    await member.roles.add(process.env.MEMBER_ROLE_ID);
+  } catch (error) {
+    console.error('Fehler beim Vergeben der Rolle:', error);
   }
 
-  const config = loadConfig();
-  const roleMap = config.roleMenus?.[reaction.message.id];
-  if (!roleMap) return;
-
-  const roleId = roleMap[reaction.emoji.name];
-  if (!roleId) return;
-
-  const guild = reaction.message.guild;
-  const member = await guild.members.fetch(user.id).catch(() => null);
-  if (!member) return;
-
-  await member.roles.add(roleId).catch(console.error);
+  setTimeout(() => {
+    updateMemberCount(member.guild);
+  }, 2000);
 });
 
-// --- Event: Reaktion entfernen ---
-client.on("messageReactionRemove", async (reaction, user) => {
-  if (user.bot) return;
-
-  if (reaction.partial) {
-    try {
-      await reaction.fetch();
-    } catch {
-      return;
-    }
-  }
-
-  const config = loadConfig();
-  const roleMap = config.roleMenus?.[reaction.message.id];
-  if (!roleMap) return;
-
-  const roleId = roleMap[reaction.emoji.name];
-  if (!roleId) return;
-
-  const guild = reaction.message.guild;
-  const member = await guild.members.fetch(user.id).catch(() => null);
-  if (!member) return;
-
-  await member.roles.remove(roleId).catch(console.error);
+client.on('guildMemberRemove', async (member) => {
+  setTimeout(() => {
+    updateMemberCount(member.guild);
+  }, 2000);
 });
 
-// --- Event: Mitglied kommt ---
-client.on("guildMemberAdd", async (member) => {
-  const config = loadConfig();
-  const channelId = config.welcomeChannelId;
-  if (!channelId) return;
-
-  const channel = member.guild.channels.cache.get(channelId);
-  if (!channel) return;
-
-  const container = new ContainerBuilder()
-    .setAccentColor(0x6d4aff)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `## 👋 Willkommen, ${member}!`
-      )
-    )
-    .addSeparatorComponents(
-      new SeparatorBuilder()
-        .setDivider(true)
-        .setSpacing(SeparatorSpacingSize.Small)
-    )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `-# Mitglied seit: <t:${Math.floor(Date.now() / 1000)}:R>`
-      )
-    );
-
-  await channel.send({
-    components: [container],
-    flags: MessageFlags.IsComponentsV2,
-  });
-});
-// --- Event: Mitglied geht ---
-client.on("guildMemberRemove", (member) => {
-  // Optional: Counter aktualisieren, falls du das noch brauchst
-});
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_BOT_TOKEN);
