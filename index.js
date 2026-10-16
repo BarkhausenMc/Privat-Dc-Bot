@@ -22,7 +22,8 @@ const {
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildVoiceStates
   ]
 });
 
@@ -153,5 +154,89 @@ client.on('guildMemberRemove', member => {
   }, 2000);
 });
 
+async function sendVoiceLog(guild, title, details, color = 0x8A2BE2) {
+  const logChannelId = process.env.VOICE_LOG_CHANNEL_ID;
+
+  if (!logChannelId) return;
+
+  const logChannel = await guild.channels.fetch(logChannelId);
+
+  if (!logChannel || !logChannel.isTextBased()) return;
+
+  const container = new ContainerBuilder()
+    .setAccentColor(color)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `# 🔮 PHOENIX · VOICE LOGS\n` +
+        `**${title}**`
+      )
+    )
+    .addSeparatorComponents(
+      new SeparatorBuilder()
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(details)
+    )
+    .addSeparatorComponents(
+      new SeparatorBuilder()
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        '-# PHOENIX VOICE SYSTEM'
+      )
+    );
+
+  await logChannel.send({
+    flags: MessageFlags.IsComponentsV2,
+    components: [container]
+  });
+}
+
+client.on('voiceStateUpdate', async (oldState, newState) => {
+  try {
+    const oldChannel = oldState.channel;
+    const newChannel = newState.channel;
+
+    const member = newState.member ?? oldState.member;
+
+    if (!member || member.user.bot) return;
+
+    if (!oldChannel && newChannel) {
+      await sendVoiceLog(
+        newState.guild,
+        '🟢 Voice Channel betreten',
+        `👤 **User:** ${member.user.tag}\n` +
+        `📥 **Channel:** ${newChannel.name}\n` +
+        `🆔 **User-ID:** ${member.id}`,
+        0x8A2BE2
+      );
+    } else if (oldChannel && !newChannel) {
+      await sendVoiceLog(
+        oldState.guild,
+        '🔴 Voice Channel verlassen',
+        `👤 **User:** ${member.user.tag}\n` +
+        `📤 **Channel:** ${oldChannel.name}\n` +
+        `🆔 **User-ID:** ${member.id}`,
+        0x4B0082
+      );
+    } else if (
+      oldChannel &&
+      newChannel &&
+      oldChannel.id !== newChannel.id
+    ) {
+      await sendVoiceLog(
+        newState.guild,
+        '🟣 Voice Channel gewechselt',
+        `👤 **User:** ${member.user.tag}\n` +
+        `📤 **Von:** ${oldChannel.name}\n` +
+        `📥 **Zu:** ${newChannel.name}\n` +
+        `🆔 **User-ID:** ${member.id}`,
+        0x9932CC
+      );
+    }
+  } catch (error) {
+    console.error('Fehler beim Voice-Logging:', error);
+  }
+});
 client.login(process.env.DISCORD_BOT_TOKEN);
 
