@@ -175,7 +175,6 @@ async function sendVoiceLog(guild, title, details) {
   if (!logChannel || !logChannel.isTextBased()) return;
 
   const voiceContainer = new ContainerBuilder()
-    .setAccentColor(color)
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `## ${title}`
