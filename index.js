@@ -1,11 +1,21 @@
 require('dotenv').config();
 
-const chalk = require('chalk');
-
 const {
   Client,
   GatewayIntentBits,
-  ChannelType
+  ChannelType,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  MessageFlags,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ButtonStyle,
+  TextDisplayComponent,
+  Sweepers
 } = require('discord.js');
 
 const client = new Client({
