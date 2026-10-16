@@ -1,12 +1,23 @@
 {
   "name": "phoenix-discord-bot",
   "version": "1.0.0",
+  "description": "Phoenix Discord Bot mit Member Counter und automatischer Rollenvergabe",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node --watch index.js"
   },
+  "keywords": [
+    "discord",
+    "bot",
+    "phoenix",
+    "member-counter"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.3.1"
+    "chalk": "^4.1.2",
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.4.7"
   }
 }
