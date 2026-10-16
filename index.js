@@ -9,6 +9,7 @@ const {
   TextDisplayBuilder,
   SeparatorBuilder,
   MessageFlags,
+  ThumbnailBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ModalBuilder,
@@ -165,7 +166,7 @@ client.on('guildMemberRemove', member => {
   }, 2000);
 });
 
-async function sendVoiceLog(guild, title, details, color = 0x8A2BE2) {
+async function sendVoiceLog(guild, member, title, details, color) {
   const logChannelId = process.env.VOICE_LOG_CHANNEL_ID;
 
   if (!logChannelId) return;
@@ -184,8 +185,21 @@ async function sendVoiceLog(guild, title, details, color = 0x8A2BE2) {
     .addSeparatorComponents(
       new SeparatorBuilder()
     )
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(details)
+    .addSectionComponents(section =>
+      section
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(details)
+        )
+        .setThumbnailAccessory(
+          new ThumbnailBuilder({
+            media: {
+              url: member.user.displayAvatarURL({
+                size: 256,
+                extension: 'png'
+              })
+            }
+          })
+        )
     )
     .addSeparatorComponents(
       new SeparatorBuilder()
@@ -214,6 +228,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     if (!oldChannel && newChannel) {
       await sendVoiceLog(
         newState.guild,
+        member,
         `🟢 Voice Channel betreten von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
         `> 📥 **Channel:** ${newChannel.name}\n` +
@@ -224,6 +239,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     } else if (oldChannel && !newChannel) {
       await sendVoiceLog(
         oldState.guild,
+        member,
         `🔴 Voice Channel verlassen von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
         `> 📤 **Channel:** ${oldChannel.name}\n` +
@@ -238,6 +254,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     ) {
       await sendVoiceLog(
         newState.guild,
+        member,
         `🟡 Voice Channel gewechselt von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
         `> 📤 **Von:** ${oldChannel.name}\n` +
