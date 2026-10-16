@@ -5,19 +5,7 @@ const chalk = require('chalk');
 const {
   Client,
   GatewayIntentBits,
-  ChannelType,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  MessageFlags,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  ButtonStyle,
-  TextDisplayComponent,
-  Sweepers
+  ChannelType
 } = require('discord.js');
 
 const client = new Client({
@@ -156,3 +144,4 @@ client.on('guildMemberRemove', member => {
 });
 
 client.login(process.env.DISCORD_BOT_TOKEN);
+
