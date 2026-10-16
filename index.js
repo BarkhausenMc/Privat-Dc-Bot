@@ -56,7 +56,7 @@ async function updateMemberCount(guild) {
   }
 }
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   console.clear();
 
   const sleep = ms =>
@@ -71,14 +71,14 @@ client.once('ready', async () => {
     '╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝'
   ];
 
-  const colors = [
-    chalk.hex('#ff4500'),
-    chalk.hex('#ff6600'),
-    chalk.hex('#ff8c00'),
-    chalk.hex('#ffaa00'),
-    chalk.hex('#ff6600'),
-    chalk.hex('#ff4500')
-  ];
+const colors = [
+  chalk.hex('#9400D3'), 
+  chalk.hex('#8A2BE2'), 
+  chalk.hex('#9932CC'), 
+  chalk.hex('#BA55D3'), 
+  chalk.hex('#8A2BE2'), 
+  chalk.hex('#6A0DAD')  
+];
 
   console.log('\n');
 
@@ -88,7 +88,7 @@ client.once('ready', async () => {
   }
 
   console.log('');
-  console.log(chalk.hex('#ff6600')('       🔥 P H O E N I X   B O T 🔥'));
+  console.log(chalk.hex('#9932CC')('       🔥 P H O E N I X   B O T 🔥'));
   console.log('');
 
   const frames = [
@@ -98,24 +98,23 @@ client.once('ready', async () => {
 
   for (let i = 0; i < 20; i++) {
     process.stdout.write(
-      `\r${chalk.hex('#ff8c00')(frames[i % frames.length])} ` +
+      `\r${chalk.hex('#BA55D3')(frames[i % frames.length])} ` +
       chalk.white('Initializing Phoenix systems...')
     );
 
     await sleep(100);
   }
 
-  console.log(
-    '\r' + chalk.green('✔ Phoenix systems initialized!       ')
-  );
+    console.log(
+      '\r' + chalk.hex('#BA55D3')('✔ Phoenix systems initialized!       ')
+    );
 
-  console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-  console.log(chalk.green('  ✔ ') + chalk.white(`Logged in as: ${client.user.tag}`));
-  console.log(chalk.green('  ✔ ') + chalk.white('Discord connection established'));
-  console.log(chalk.green('  ✔ ') + chalk.white('Member counter initialized'));
-  console.log(chalk.gray('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-  console.log(chalk.hex('#ff6600')('          🚀 PHOENIX BOT ONLINE 🚀'));
-  console.log('');
+    console.log(chalk.hex('#4B0082')('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.hex('#BA55D3')('  ✔ ') + chalk.white(`Logged in as: ${client.user.tag}`));
+    console.log(chalk.hex('#BA55D3')('  ✔ ') + chalk.white('Discord connection established'));
+    console.log(chalk.hex('#BA55D3')('  ✔ ') + chalk.white('Member counter initialized'));
+    console.log(chalk.hex('#4B0082')('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+    console.log(chalk.hex('#9932CC')('          ✨ PHOENIX BOT ONLINE ✨'));
 
   const guild = client.guilds.cache.first();
 
