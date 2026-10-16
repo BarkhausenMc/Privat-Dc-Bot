@@ -1,5 +1,5 @@
 require('dotenv').config();
-
+import chalk from 'chalk';
 const {
   Client,
   GatewayIntentBits,
