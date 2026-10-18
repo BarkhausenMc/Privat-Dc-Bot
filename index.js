@@ -233,8 +233,8 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         member,
         `🟢 Voice Channel betreten von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
+        `> 🆔 **User-ID:** ${member.id}\n` +        
         `> 📥 **Channel:** ${newChannel.name}\n` +
-        `> 🆔 **User-ID:** ${member.id}\n` +
         `> 🕒 **Zeitpunkt:** ${timestamp}`, 
         0x2ECC71
       );
@@ -244,10 +244,10 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         member,
         `🔴 Voice Channel verlassen von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
-        `> 📤 **Channel:** ${oldChannel.name}\n` +
         `> 🆔 **User-ID:** ${member.id}\n` +
+        `> 📤 **Channel:** ${oldChannel.name}\n` +
         `> 🕒 **Zeitpunkt:** ${timestamp}`, 
-        0xE74C3C
+        0xED4245
       );
     } else if (
       oldChannel &&
@@ -259,9 +259,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         member,
         `🟡 Voice Channel gewechselt von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
+        `> 🆔 **User-ID:** ${member.id}\n` +
         `> 📤 **Von:** ${oldChannel.name}\n` +
         `> 📥 **Zu:** ${newChannel.name}\n` +
-        `> 🆔 **User-ID:** ${member.id}\n` +
         `> 🕒 **Zeitpunkt:** ${timestamp}`, 
         0xF1C40F
       );
@@ -387,7 +387,7 @@ client.on('interactionCreate', async (interaction) => {
       role,
       action: 'added'
     });
-    
+
     return interaction.reply({
       content: `✅ Du hast die Rolle **${name}** erhalten!`,
       flags: MessageFlags.Ephemeral
@@ -428,11 +428,6 @@ async function sendRoleLog({ guild, user, role, action }) {
         new TextDisplayBuilder().setContent(
           [
             `## ${added ? '🟢 Rolle hinzugefügt' : '🔴 Rolle entfernt'}`,
-            '',
-            `**Mitglied:** ${user} (\`${user.id}\`)`,
-            `**Rolle:** ${role} (\`${role.id}\`)`,
-            `**Aktion:** ${added ? 'Hinzugefügt' : 'Entfernt'}`,
-            `**Zeitpunkt:** <t:${Math.floor(Date.now() / 1000)}:F>`
           ].join('\n')
         )
       )
@@ -443,7 +438,22 @@ async function sendRoleLog({ guild, user, role, action }) {
       )
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `-# Rollenprotokoll • ${guild.name}`
+            `> 👤 **User:** ${member.user.tag}\n` +
+            `> 🆔 **User-ID:** ${member.id}\n` +
+            `> 🎭 **Rolle:** ${role}\n` +
+            `> 🆔 **Role-ID:** ${role.id}\n` +
+            `> ▶️ **Aktion:** ${added ? '📥 Hinzugefügt' : '📤 Entfernt'}`,
+            `> 🕒  **Zeitpunkt:** ${timestamp}`
+        )
+      )
+      .addSeparatorComponents(
+        new SeparatorBuilder()
+          .setDivider(true)
+          .setSpacing(1)
+      )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `-# PHOENIX ROLE LOG SYSTEM`
         )
       );
 
