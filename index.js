@@ -366,6 +366,13 @@ client.on('interactionCreate', async (interaction) => {
     if (member.roles.cache.has(role.id)) {
       await member.roles.remove(role);
 
+    await sendRoleLog({
+      guild: interaction.guild,
+      user: interaction.user,
+      role,
+      action: 'removed'
+    });
+
       return interaction.reply({
         content: `➖ Die Rolle **${name}** wurde entfernt.`,
         flags: MessageFlags.Ephemeral
@@ -374,6 +381,13 @@ client.on('interactionCreate', async (interaction) => {
 
     await member.roles.add(role);
 
+    await sendRoleLog({
+      guild: interaction.guild,
+      user: interaction.user,
+      role,
+      action: 'added'
+    });
+    
     return interaction.reply({
       content: `✅ Du hast die Rolle **${name}** erhalten!`,
       flags: MessageFlags.Ephemeral
