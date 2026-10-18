@@ -336,7 +336,7 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
     if (interaction.customId !== 'ankündigung') return;
 
-      const ankündigungPing = process.env.ANKÜNDIGUNG_ROLE_ID;
+      const ankündigungPing = process.env.ANKUENDIGUNG_ROLE_ID;
 
       const member = await interaction.guild.members.fetch(
         interaction.user.id
