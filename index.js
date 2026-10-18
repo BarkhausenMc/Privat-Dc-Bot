@@ -271,26 +271,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-client.on('interactionCreate', async (interaction) => {
-
-  if (interaction.isChatInputCommand()) {
-    if (interaction.commandName !== 'settings') return;
-
-    const settingsChannel = await interaction.guild.channels.fetch(
-      process.env.SETTINGS_CHANNEL_ID
-    );
-
-    await settingsChannel.send({
-      components: [settingsContainer],
-      flags: MessageFlags.IsComponentsV2
-    });
-
-    return interaction.reply({
-      content: 'Das Rollenmenü wurde gesendet!',
-      flags: MessageFlags.Ephemeral
-    });
-  }
-
 const settingsContainer = new ContainerBuilder()
   .addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
@@ -332,6 +312,26 @@ const settingsContainer = new ContainerBuilder()
         .setStyle(ButtonStyle.Secondary)
     )
   );
+
+client.on('interactionCreate', async (interaction) => {
+
+  if (interaction.isChatInputCommand()) {
+    if (interaction.commandName !== 'settings') return;
+
+    const settingsChannel = await interaction.guild.channels.fetch(
+      process.env.SETTINGS_CHANNEL_ID
+    );
+
+    await settingsChannel.send({
+      components: [settingsContainer],
+      flags: MessageFlags.IsComponentsV2
+    });
+
+    return interaction.reply({
+      content: 'Das Rollenmenü wurde gesendet!',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 
   if (interaction.isButton()) {
     if (interaction.customId !== 'ankündigung') return;
