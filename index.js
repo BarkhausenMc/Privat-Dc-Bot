@@ -335,16 +335,8 @@ client.on('interactionCreate', async (interaction) => {
   const config = roleButtons[interaction.customId];
   if (!config) return;
 
-  if (!interaction.guild) {
-    return interaction.reply({
-      content: 'Dieser Button funktioniert nur auf einem Server.',
-      flags: MessageFlags.Ephemeral
-    });
-  }
-
   const { roleId, name } = config;
 
-  // Prüfen, ob eine Rollen-ID konfiguriert ist.
   if (!roleId || !/^\d{17,20}$/.test(roleId)) {
     console.error(
       `Ungültige Rollen-ID für ${name}:`,
@@ -398,6 +390,58 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+async function sendRoleLog({ guild, user, role, action }) {
+  const logChannelId = process.env.SERVER_LOG_CHANNEL_ID;
+
+  if (!logChannelId) {
+    console.error('SERVER_LOG_CHANNEL_ID fehlt in der .env!');
+    return;
+  }
+
+  try {
+    const logChannel = await guild.channels.fetch(logChannelId);
+
+    if (!logChannel || !logChannel.isTextBased()) {
+      console.error('Der Log-Channel wurde nicht gefunden.');
+      return;
+    }
+
+    const added = action === 'added';
+
+    const logContainer = new ContainerBuilder()
+      .setAccentColor(added ? 0x57F287 : 0xED4245)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          [
+            `## ${added ? '🟢 Rolle hinzugefügt' : '🔴 Rolle entfernt'}`,
+            '',
+            `**Mitglied:** ${user} (\`${user.id}\`)`,
+            `**Rolle:** ${role} (\`${role.id}\`)`,
+            `**Aktion:** ${added ? 'Hinzugefügt' : 'Entfernt'}`,
+            `**Zeitpunkt:** <t:${Math.floor(Date.now() / 1000)}:F>`
+          ].join('\n')
+        )
+      )
+      .addSeparatorComponents(
+        new SeparatorBuilder()
+          .setDivider(true)
+          .setSpacing(1)
+      )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `-# Rollenprotokoll • ${guild.name}`
+        )
+      );
+
+    await logChannel.send({
+      components: [logContainer],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { parse: [] }
+    });
+  } catch (error) {
+    console.error('Fehler beim Senden des Rollen-Logs:', error);
+  }
+}
 
 client.login(process.env.DISCORD_BOT_TOKEN);
 
