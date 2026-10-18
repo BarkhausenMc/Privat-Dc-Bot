@@ -271,48 +271,14 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-// Rollenmenü erstellen
-const settingsContainer = new ContainerBuilder()
-  .addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      'Drücke den Button für die Rolle'
-    )
-  )
-  .addSeparatorComponents(
-    new SeparatorBuilder()
-      .setDivider(true)
-      .setSpacing(1)
-  )
-  .addActionRowComponents(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('rolle1')
-        .setLabel('rolle1')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId('rolle2')
-        .setLabel('rolle2')
-        .setStyle(ButtonStyle.Secondary)
-    )
-  );
-
 client.on('interactionCreate', async (interaction) => {
 
-  // Slash-Command: /setup
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName !== 'settings') return;
 
     const settingsChannel = await interaction.guild.channels.fetch(
       process.env.SETTINGS_CHANNEL_ID
     );
-
-    if (!settingsChannel) {
-      return interaction.reply({
-        content: 'Channel nicht gefunden!',
-        flags: MessageFlags.Ephemeral
-      });
-    }
 
     await settingsChannel.send({
       components: [settingsContainer],
@@ -325,33 +291,124 @@ client.on('interactionCreate', async (interaction) => {
     });
   }
 
-  
-  // Button: rolle1
-  if (interaction.isButton()) {
-    if (interaction.customId !== 'rolle1') return;
+const settingsContainer = new ContainerBuilder()
+  .addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      [
+        '## 🎭 Rollenverwaltung',
+        'Wähle aus, über welche Themen du informiert werden möchtest.',
+        '',
+        '📢 **Ankündigungen** – Erfahre von wichtigen Neuigkeiten.',
+        '📝 **Changelogs** – Bleibe über Updates auf dem Laufenden.',
+        '🤝 **Partner** – Erhalte Informationen zu unseren Partnern.',
+        '',
+        '> Klicke auf einen Button, um die jeweilige Rolle zu erhalten.'
+      ].join('\n')
+    )
+  )
+  .addSeparatorComponents(
+    new SeparatorBuilder()
+      .setDivider(true)
+      .setSpacing(1)
+  )
+  .addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('ankündigung')
+        .setLabel('Ankündigungen')
+        .setEmoji('📢')
+        .setStyle(ButtonStyle.Secondary),
 
-      const role1 = process.env.ROLE_1_ID;
+      new ButtonBuilder()
+        .setCustomId('changelogs')
+        .setLabel('Changelogs')
+        .setEmoji('📝')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('partner')
+        .setLabel('Partner')
+        .setEmoji('🤝')
+        .setStyle(ButtonStyle.Secondary)
+    )
+  );
+
+  if (interaction.isButton()) {
+    if (interaction.customId !== 'ankündigung') return;
+
+      const ankündigungPing = process.env.ANKÜNDIGUNG_ROLE_ID;
 
       const member = await interaction.guild.members.fetch(
         interaction.user.id
       );
 
-      if (member.roles.cache.has(role1)) {
-        await member.roles.remove(role1);
+      if (member.roles.cache.has(ankündigungPing)) {
+        await member.roles.remove(ankündigungPing);
 
         return interaction.reply({
           content: `Die Rolle **1** wurde entfernt.`,
           flags: MessageFlags.Ephemeral
         });
       } else {
-        await member.roles.add(role1);
+        await member.roles.add(ankündigungPing);
 
         return interaction.reply({
           content: `Du hast die Rolle **1** erhalten!`,
           flags: MessageFlags.Ephemeral
         });
       }
-    
+  }
+
+    if (interaction.isButton()) {
+    if (interaction.customId !== 'changelogs') return;
+
+      const changelogsPing = process.env.CHANGELOGS_ROLE_ID;
+
+      const member = await interaction.guild.members.fetch(
+        interaction.user.id
+      );
+
+      if (member.roles.cache.has(changelogsPing)) {
+        await member.roles.remove(changelogsPing);
+
+        return interaction.reply({
+          content: `Die Rolle **1** wurde entfernt.`,
+          flags: MessageFlags.Ephemeral
+        });
+      } else {
+        await member.roles.add(changelogsPing);
+
+        return interaction.reply({
+          content: `Du hast die Rolle **1** erhalten!`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+  }
+
+    if (interaction.isButton()) {
+    if (interaction.customId !== 'partner') return;
+
+      const partnerPing = process.env.PARTNER_ROLE_ID;
+
+      const member = await interaction.guild.members.fetch(
+        interaction.user.id
+      );
+
+      if (member.roles.cache.has(partnerPing)) {
+        await member.roles.remove(partnerPing);
+
+        return interaction.reply({
+          content: `Die Rolle **1** wurde entfernt.`,
+          flags: MessageFlags.Ephemeral
+        });
+      } else {
+        await member.roles.add(partnerPing);
+
+        return interaction.reply({
+          content: `Du hast die Rolle **1** erhalten!`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
   }
 });
 
