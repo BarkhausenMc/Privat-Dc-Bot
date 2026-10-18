@@ -329,8 +329,7 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
     if (interaction.customId !== 'rolle1') return;
 
-    const role1 =
-      interaction.guild.roles.channels.fetch(process.env.ROLE_1_ID);
+    const role1 = process.env.ROLE_1_ID
 
     if (!role1) {
       return interaction.reply({
