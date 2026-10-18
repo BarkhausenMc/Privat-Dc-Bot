@@ -313,104 +313,91 @@ const settingsContainer = new ContainerBuilder()
     )
   );
 
+
+const roleButtons = {
+  ankündigung: {
+    roleId: process.env.ANNOUNCEMENT_ROLE_ID,
+    name: 'Ankündigungen'
+  },
+  changelogs: {
+    roleId: process.env.CHANGELOGS_ROLE_ID,
+    name: 'Changelogs'
+  },
+  partner: {
+    roleId: process.env.PARTNER_ROLE_ID,
+    name: 'Partner'
+  }
+};
+
 client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
 
-  if (interaction.isChatInputCommand()) {
-    if (interaction.commandName !== 'settings') return;
+  const config = roleButtons[interaction.customId];
+  if (!config) return;
 
-    const settingsChannel = await interaction.guild.channels.fetch(
-      process.env.SETTINGS_CHANNEL_ID
-    );
-
-    await settingsChannel.send({
-      components: [settingsContainer],
-      flags: MessageFlags.IsComponentsV2
-    });
-
+  if (!interaction.guild) {
     return interaction.reply({
-      content: 'Das Rollenmenü wurde gesendet!',
+      content: 'Dieser Button funktioniert nur auf einem Server.',
       flags: MessageFlags.Ephemeral
     });
   }
 
-  if (interaction.isButton()) {
-    if (interaction.customId !== 'ankündigung') return;
+  const { roleId, name } = config;
 
-      const ankündigungPing = process.env.ANKUENDIGUNG_ROLE_ID;
+  // Prüfen, ob eine Rollen-ID konfiguriert ist.
+  if (!roleId || !/^\d{17,20}$/.test(roleId)) {
+    console.error(
+      `Ungültige Rollen-ID für ${name}:`,
+      roleId
+    );
 
-      const member = await interaction.guild.members.fetch(
-        interaction.user.id
-      );
-
-      if (member.roles.cache.has(ankündigungPing)) {
-        await member.roles.remove(ankündigungPing);
-
-        return interaction.reply({
-          content: `Die Rolle **1** wurde entfernt.`,
-          flags: MessageFlags.Ephemeral
-        });
-      } else {
-        await member.roles.add(ankündigungPing);
-
-        return interaction.reply({
-          content: `Du hast die Rolle **1** erhalten!`,
-          flags: MessageFlags.Ephemeral
-        });
-      }
+    return interaction.reply({
+      content: 'Diese Rolle ist momentan nicht richtig konfiguriert.',
+      flags: MessageFlags.Ephemeral
+    });
   }
 
-    if (interaction.isButton()) {
-    if (interaction.customId !== 'changelogs') return;
+  try {
+    const member = await interaction.guild.members.fetch(
+      interaction.user.id
+    );
 
-      const changelogsPing = process.env.CHANGELOGS_ROLE_ID;
+    const role = await interaction.guild.roles.fetch(roleId);
 
-      const member = await interaction.guild.members.fetch(
-        interaction.user.id
-      );
+    if (!role) {
+      return interaction.reply({
+        content: `Die Rolle **${name}** wurde auf dem Server nicht gefunden.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
-      if (member.roles.cache.has(changelogsPing)) {
-        await member.roles.remove(changelogsPing);
+    if (member.roles.cache.has(role.id)) {
+      await member.roles.remove(role);
 
-        return interaction.reply({
-          content: `Die Rolle **1** wurde entfernt.`,
-          flags: MessageFlags.Ephemeral
-        });
-      } else {
-        await member.roles.add(changelogsPing);
+      return interaction.reply({
+        content: `➖ Die Rolle **${name}** wurde entfernt.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
-        return interaction.reply({
-          content: `Du hast die Rolle **1** erhalten!`,
-          flags: MessageFlags.Ephemeral
-        });
-      }
-  }
+    await member.roles.add(role);
 
-    if (interaction.isButton()) {
-    if (interaction.customId !== 'partner') return;
+    return interaction.reply({
+      content: `✅ Du hast die Rolle **${name}** erhalten!`,
+      flags: MessageFlags.Ephemeral
+    });
+  } catch (error) {
+    console.error(`Fehler bei der Rolle ${name}:`, error);
 
-      const partnerPing = process.env.PARTNER_ROLE_ID;
-
-      const member = await interaction.guild.members.fetch(
-        interaction.user.id
-      );
-
-      if (member.roles.cache.has(partnerPing)) {
-        await member.roles.remove(partnerPing);
-
-        return interaction.reply({
-          content: `Die Rolle **1** wurde entfernt.`,
-          flags: MessageFlags.Ephemeral
-        });
-      } else {
-        await member.roles.add(partnerPing);
-
-        return interaction.reply({
-          content: `Du hast die Rolle **1** erhalten!`,
-          flags: MessageFlags.Ephemeral
-        });
-      }
+    if (!interaction.replied && !interaction.deferred) {
+      return interaction.reply({
+        content: 'Beim Ändern deiner Rolle ist ein Fehler aufgetreten.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
   }
 });
+
 
 client.login(process.env.DISCORD_BOT_TOKEN);
 
