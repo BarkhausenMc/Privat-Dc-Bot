@@ -421,13 +421,29 @@ async function sendRoleLog({ guild, user, role, action }) {
     }
 
     const added = action === 'added';
+    const timestamp = Math.floor(Date.now() / 1000);
 
     const logContainer = new ContainerBuilder()
       .setAccentColor(added ? 0x57F287 : 0xED4245)
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
+          `## ${added ? '🟢 Rolle hinzugefügt' : '🔴 Rolle entfernt'}`
+        )
+      )
+      .addSeparatorComponents(
+        new SeparatorBuilder()
+          .setDivider(true)
+          .setSpacing(1)
+      )
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
           [
-            `## ${added ? '🟢 Rolle hinzugefügt' : '🔴 Rolle entfernt'}`,
+            `> 👤 **User:** ${user.tag ?? user.username}`,
+            `> 🆔 **User-ID:** ${user.id}`,
+            `> 🎭 **Rolle:** ${role.name}`,
+            `> 🆔 **Role-ID:** ${role.id}`,
+            `> ▶️ **Aktion:** ${added ? '📥 Hinzugefügt' : '📤 Entfernt'}`,
+            `> 🕒 **Zeitpunkt:** <t:${timestamp}:F>`
           ].join('\n')
         )
       )
@@ -438,22 +454,7 @@ async function sendRoleLog({ guild, user, role, action }) {
       )
       .addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-            `> 👤 **User:** ${member.user.tag}\n` +
-            `> 🆔 **User-ID:** ${member.id}\n` +
-            `> 🎭 **Rolle:** ${role}\n` +
-            `> 🆔 **Role-ID:** ${role.id}\n` +
-            `> ▶️ **Aktion:** ${added ? '📥 Hinzugefügt' : '📤 Entfernt'}`,
-            `> 🕒  **Zeitpunkt:** ${timestamp}`
-        )
-      )
-      .addSeparatorComponents(
-        new SeparatorBuilder()
-          .setDivider(true)
-          .setSpacing(1)
-      )
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `-# PHOENIX ROLE LOG SYSTEM`
+          '-# PHOENIX ROLE LOG SYSTEM'
         )
       );
 
