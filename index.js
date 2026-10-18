@@ -271,6 +271,25 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
+const settingsChannel = interaction.guild.channels.cache.get('SETTINGS_CHANNEL_ID');
+
+if (!settingsChannel) {
+  return interaction.reply({
+    content: 'Channel nicht gefunden!',
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+await SettingsChannel.send({
+  components: [settigsConatiner],
+  flags: MessageFlags.IsComponentsV2
+});
+
+await interaction.reply({
+  content: 'Das Rollenmenü wurde gesendet!',
+  flags: MessageFlags.Ephemeral
+});
+
 const settigsConatiner = new ContainerBuilder()
   .addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
@@ -304,25 +323,31 @@ const settigsConatiner = new ContainerBuilder()
 
 if (
   interaction.isButton() &&
-  interaction.setCustomId === 'rolle1'
+  interaction.customId === 'rolle1'
 ) {
+  const role1 = interaction.guild.roles.cache.get('ROLE_1_ID');
 
-  const role1 = interaction.guild.roles.cache.get('ROLE1_ID');
+  if (!role1) {
+    return interaction.reply({
+      content: 'Die Rolle wurde nicht gefunden!',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 
   await interaction.member.roles.add(role1);
 
-  const addedRoleConatiner = new ContainerBuilder()
-  .addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      'Du hast die Rolle 1 bekommen!'
-    )
-  )
+  const addedRoleContainer = new ContainerBuilder()
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        'Du hast die Rolle 1 bekommen!'
+      )
+    );
 
   await interaction.reply({
-    components: [addedRoleConatiner],
+    components: [addedRoleContainer],
     flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
   });
-
 }
+
 client.login(process.env.DISCORD_BOT_TOKEN);
 
