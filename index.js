@@ -271,23 +271,30 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-const settingsChannel = interaction.guild.channels.cache.get('SETTINGS_CHANNEL_ID');
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== 'setup') return;
 
-if (!settingsChannel) {
-  return interaction.reply({
-    content: 'Channel nicht gefunden!',
+  const settingsChannel = interaction.guild.channels.cache.get(
+    'SETTINGS_CHANNEL_ID'
+  );
+
+  if (!settingsChannel) {
+    return interaction.reply({
+      content: 'Channel nicht gefunden!',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  await settingsChannel.send({
+    components: [settigsConatiner],
+    flags: MessageFlags.IsComponentsV2
+  });
+
+  await interaction.reply({
+    content: 'Das Rollenmenü wurde gesendet!',
     flags: MessageFlags.Ephemeral
   });
-}
-
-await channel.send({
-  components: [settigsConatiner],
-  flags: MessageFlags.IsComponentsV2
-});
-
-await interaction.reply({
-  content: 'Das Rollenmenü wurde gesendet!',
-  flags: MessageFlags.Ephemeral
 });
 
 const settigsConatiner = new ContainerBuilder()
