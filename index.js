@@ -280,7 +280,7 @@ if (!settingsChannel) {
   });
 }
 
-await Channel.send({
+await channel.send({
   components: [settigsConatiner],
   flags: MessageFlags.IsComponentsV2
 });
