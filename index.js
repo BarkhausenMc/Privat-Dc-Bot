@@ -271,90 +271,100 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
 });
 
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== 'setup') return;
-
-  const settingsChannel = interaction.guild.channels.cache.get(
-    'SETTINGS_CHANNEL_ID'
-  );
-
-  if (!settingsChannel) {
-    return interaction.reply({
-      content: 'Channel nicht gefunden!',
-      flags: MessageFlags.Ephemeral
-    });
-  }
-
-  await settingsChannel.send({
-    components: [settigsConatiner],
-    flags: MessageFlags.IsComponentsV2
-  });
-
-  await interaction.reply({
-    content: 'Das Rollenmenü wurde gesendet!',
-    flags: MessageFlags.Ephemeral
-  });
-});
-
-const settigsConatiner = new ContainerBuilder()
+// Rollenmenü erstellen
+const settingsContainer = new ContainerBuilder()
   .addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       'Drücke den Button für die Rolle'
     )
-  )  
-.addSeparatorComponents(
-  new SeparatorBuilder()
-  .setDivider(true)
-  .setSpacing(1)
-)
-
-.addActionRowComponents(
-  new ActionRowBuilder().addComponents(
-
-    new ButtonBuilder()
-      .setCustomId('rolle1')
-      .setLabel('rolle1')
-      .setStyle(ButtonStyle.Secondary),
+  )
+  .addSeparatorComponents(
+    new SeparatorBuilder()
+      .setDivider(true)
+      .setSpacing(1)
+  )
+  .addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('rolle1')
+        .setLabel('rolle1')
+        .setStyle(ButtonStyle.Secondary),
 
       new ButtonBuilder()
         .setCustomId('rolle2')
         .setLabel('rolle2')
         .setStyle(ButtonStyle.Secondary)
-  )
-)
-  await interaction.reply({
-    components: [settigsConatiner],
-    flags: MessageFlags.IsComponentsV2
-  });
+    )
+  );
 
-if (
-  interaction.isButton() &&
-  interaction.customId === 'rolle1'
-) {
-  const role1 = interaction.guild.roles.cache.get('ROLE_1_ID');
+client.on('interactionCreate', async (interaction) => {
 
-  if (!role1) {
+  // Slash-Command: /setup
+  if (interaction.isChatInputCommand()) {
+    if (interaction.commandName !== 'setup') return;
+
+    const settingsChannel =
+      interaction.guild.channels.cache.get('SETTINGS_CHANNEL_ID');
+
+    if (!settingsChannel) {
+      return interaction.reply({
+        content: 'Channel nicht gefunden!',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    await settingsChannel.send({
+      components: [settingsContainer],
+      flags: MessageFlags.IsComponentsV2
+    });
+
     return interaction.reply({
-      content: 'Die Rolle wurde nicht gefunden!',
+      content: 'Das Rollenmenü wurde gesendet!',
       flags: MessageFlags.Ephemeral
     });
   }
 
-  await interaction.member.roles.add(role1);
+  // Button: rolle1
+  if (interaction.isButton()) {
+    if (interaction.customId !== 'rolle1') return;
 
-  const addedRoleContainer = new ContainerBuilder()
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        'Du hast die Rolle 1 bekommen!'
-      )
-    );
+    const role1 =
+      interaction.guild.roles.cache.get('ROLE_1_ID');
 
-  await interaction.reply({
-    components: [addedRoleContainer],
-    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
-  });
-}
+    if (!role1) {
+      return interaction.reply({
+        content: 'Die Rolle wurde nicht gefunden!',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    try {
+      await interaction.member.roles.add(role1);
+
+      const addedRoleContainer = new ContainerBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            'Du hast die Rolle 1 bekommen!'
+          )
+        );
+
+      return interaction.reply({
+        components: [addedRoleContainer],
+        flags:
+          MessageFlags.IsComponentsV2 |
+          MessageFlags.Ephemeral
+      });
+    } catch (error) {
+      console.error('Fehler beim Vergeben der Rolle:', error);
+
+      return interaction.reply({
+        content:
+          'Die Rolle konnte nicht vergeben werden. Prüfe meine Berechtigungen!',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
+});
 
 client.login(process.env.DISCORD_BOT_TOKEN);
 
