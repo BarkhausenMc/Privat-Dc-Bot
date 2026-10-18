@@ -270,5 +270,59 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     console.error('Fehler beim Voice-Logging:', error);
   }
 });
+
+const settigsConatiner = new ContainerBuilder()
+  .addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      'Drücke den Button für die Rolle'
+    )
+  )  
+.addSeparatorComponents(
+  new SeparatorBuilder()
+  .setDivider(true)
+  .setSpacing(1)
+)
+
+.addActionRowComponents(
+  new ActionRowBuilder().addComponents(
+
+    new ButtonBuilder()
+      .setCustomId('rolle1')
+      .setLabel('rolle1')
+      .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('rolle2')
+        .setLabel('rolle2')
+        .setStyle(ButtonStyle.Secondary)
+  )
+)
+  await interaction.reply({
+    components: [settigsConatiner],
+    flags: MessageFlags.IsComponentsV2
+  });
+
+if (
+  interaction.isButton() &&
+  interaction.setCustomId === 'rolle1'
+) {
+
+  const role1 = interaction.guild.roles.cache.get('ROLE1_ID');
+
+  await interaction.member.roles.add(role1);
+
+  const addedRoleConatiner = new ContainerBuilder()
+  .addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      'Du hast die Rolle 1 bekommen!'
+    )
+  )
+
+  await interaction.reply({
+    components: [addedRoleConatiner],
+    flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral
+  });
+
+}
 client.login(process.env.DISCORD_BOT_TOKEN);
 
