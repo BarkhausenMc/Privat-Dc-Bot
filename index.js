@@ -325,44 +325,33 @@ client.on('interactionCreate', async (interaction) => {
     });
   }
 
+  
   // Button: rolle1
   if (interaction.isButton()) {
     if (interaction.customId !== 'rolle1') return;
 
-    const role1 = process.env.ROLE_1_ID
+      const role1 = process.env.ROLE_1_ID;
 
-    if (!role1) {
-      return interaction.reply({
-        content: 'Die Rolle wurde nicht gefunden!',
-        flags: MessageFlags.Ephemeral
-      });
-    }
+      const member = await interaction.guild.members.fetch(
+        interaction.user.id
+      );
 
-    try {
-      await interaction.member.roles.add(role1);
+      if (member.roles.cache.has(role1)) {
+        await member.roles.remove(role1);
 
-      const addedRoleContainer = new ContainerBuilder()
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            'Du hast die Rolle 1 bekommen!'
-          )
-        );
+        return interaction.reply({
+          content: `Die Rolle **1** wurde entfernt.`,
+          flags: MessageFlags.Ephemeral
+        });
+      } else {
+        await member.roles.add(role1);
 
-      return interaction.reply({
-        components: [addedRoleContainer],
-        flags:
-          MessageFlags.IsComponentsV2 |
-          MessageFlags.Ephemeral
-      });
-    } catch (error) {
-      console.error('Fehler beim Vergeben der Rolle:', error);
-
-      return interaction.reply({
-        content:
-          'Die Rolle konnte nicht vergeben werden. Prüfe meine Berechtigungen!',
-        flags: MessageFlags.Ephemeral
-      });
-    }
+        return interaction.reply({
+          content: `Du hast die Rolle **1** erhalten!`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+    
   }
 });
 
