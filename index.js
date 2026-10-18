@@ -301,10 +301,11 @@ client.on('interactionCreate', async (interaction) => {
 
   // Slash-Command: /setup
   if (interaction.isChatInputCommand()) {
-    if (interaction.commandName !== 'setup') return;
+    if (interaction.commandName !== 'settings') return;
 
-    const settingsChannel =
-      interaction.guild.channels.cache.get('SETTINGS_CHANNEL_ID');
+    const settingsChannel = await interaction.guild.channels.fetch(
+      process.env.SETTINGS_CHANNEL_ID
+    );
 
     if (!settingsChannel) {
       return interaction.reply({
@@ -329,7 +330,7 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.customId !== 'rolle1') return;
 
     const role1 =
-      interaction.guild.roles.cache.get('ROLE_1_ID');
+      interaction.guild.roles.channels.fetch(process.env.ROLE_1_ID);
 
     if (!role1) {
       return interaction.reply({
