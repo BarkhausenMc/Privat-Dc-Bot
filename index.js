@@ -327,6 +327,38 @@ const settingsContainer = new ContainerBuilder()
     )
   );
 
+  client.on('interactionCreate', async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== 'settings') return;
+
+  if (!interaction.channel || !interaction.channel.isTextBased()) {
+    return interaction.reply({
+      content: 'Dieser Channel unterstützt keine Nachrichten.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  try {
+    await interaction.channel.send({
+      components: [settingsContainer],
+      flags: MessageFlags.IsComponentsV2
+    });
+
+    await interaction.reply({
+      content: '✅ Das Rollenmenü wurde gesendet.',
+      flags: MessageFlags.Ephemeral
+    });
+  } catch (error) {
+    console.error('Fehler beim Senden des Settings-Menüs:', error);
+
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: '❌ Das Rollenmenü konnte nicht gesendet werden.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
+});
 
 const roleButtons = {
   ankündigung: {
@@ -485,7 +517,7 @@ async function sendRoleLog({ guild, user, role, action }) {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
-    if (interaction.customId !== 'meine-rollen') return;
+    if (interaction.customId !== 'meine_rollen') return;
 
     const member = interaction.member;
 
