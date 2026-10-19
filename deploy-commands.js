@@ -11,6 +11,10 @@ const commands = [
         .setName('settings')
         .setDescription('Schickt das Embed mit den Settings in den Channel.')
         .toJSON(),
+
+    new SlashCommandBuilder()
+    .setName('admin-settings')
+    .setDescription('Schickt das Embed mit den Admin Settings in den Channel.')    
 ];
 
 const rest = new REST({ version: '10' })
