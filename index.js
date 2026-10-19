@@ -448,6 +448,60 @@ client.on('interactionCreate', async (interaction) => {
       });
     }
   }
+
+  if (interaction.customId === 'meine-rollen') {
+    try {
+      const member = await interaction.guild.members.fetch(
+        interaction.user.id
+      );
+
+      const rollen = member.roles.cache
+        .filter(role => role.id !== interaction.guild.id)
+        .sort((a, b) => b.position - a.position)
+        .map(role => `- ${role.toString()}`);
+
+      const container = new ContainerBuilder()
+        .setAccentColor(0x5865F2)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `# 🎭 Deine Rollen\nHier siehst du alle Rollen auf **${interaction.guild.name}**.`
+          )
+        )
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true)
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            rollen.length
+              ? rollen.join('\n')
+              : 'Du hast keine zusätzlichen Rollen.'
+          )
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `-# Insgesamt **${rollen.length}** Rollen`
+          )
+        );
+
+      return await interaction.reply({
+        components: [container],
+        flags: MessageFlags.IsComponentsV2 |
+               MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] }
+      });
+    } catch (error) {
+      console.error('Fehler beim Anzeigen der Rollen:', error);
+
+      if (!interaction.replied && !interaction.deferred) {
+        return interaction.reply({
+          content: 'Die Rollen konnten nicht angezeigt werden.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+      return;
+    }
+  }
+
 });
 
 async function sendRoleLog({ guild, user, role, action }) {
@@ -514,53 +568,6 @@ async function sendRoleLog({ guild, user, role, action }) {
   }
 }
 
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-
-    if (interaction.customId !== 'meine_rollen') return;
-
-    const member = interaction.member;
-
-    const rollen = member.roles.cache
-        .filter(role => role.id !== interaction.guildId)
-        .sort((a, b) => b.position - a.position)
-        .map(role => `- ${role.toString()}`);
-
-    const container = new ContainerBuilder()
-        .setAccentColor(0x5865F2)
-        .addTextDisplayComponents(
-            new TextDisplayBuilder()
-                .setContent(`# 🎭 Deine Rollen\nHier siehst du alle Rollen, die du auf **${interaction.guild.name}** hast.`)
-        )
-        .addSeparatorComponents(
-            new SeparatorBuilder()
-                .setDivider(true)
-                .setSpacing(SeparatorSpacingSize.Small)
-        )
-        .addTextDisplayComponents(
-            new TextDisplayBuilder()
-                .setContent(
-                    rollen.length
-                        ? rollen.join('\n')
-                        : 'Du hast keine zusätzlichen Rollen.'
-                )
-        )
-        .addSeparatorComponents(
-            new SeparatorBuilder()
-                .setDivider(true)
-                .setSpacing(SeparatorSpacingSize.Small)
-        )
-        .addTextDisplayComponents(
-            new TextDisplayBuilder()
-                .setContent(`-# Insgesamt **${rollen.length}** Rollen`)
-        );
-
-    await interaction.reply({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-        allowedMentions: { parse: [] }
-    });
-});
 
 client.login(process.env.DISCORD_BOT_TOKEN);
 
