@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const chalk = require('chalk');
 
@@ -86,14 +87,14 @@ client.once('clientReady', async () => {
     '╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝'
   ];
 
-const colors = [
-  chalk.hex('#9400D3'), 
-  chalk.hex('#8A2BE2'), 
-  chalk.hex('#9932CC'), 
-  chalk.hex('#BA55D3'), 
-  chalk.hex('#8A2BE2'), 
-  chalk.hex('#6A0DAD')  
-];
+  const colors = [
+    chalk.hex('#9400D3'),
+    chalk.hex('#8A2BE2'),
+    chalk.hex('#9932CC'),
+    chalk.hex('#BA55D3'),
+    chalk.hex('#8A2BE2'),
+    chalk.hex('#6A0DAD')
+  ];
 
   console.log('\n');
 
@@ -120,16 +121,16 @@ const colors = [
     await sleep(100);
   }
 
-    console.log(
-      '\r' + chalk.hex('#BA55D3')('✔ Phoenix systems initialized!       ')
-    );
+  console.log(
+    '\r' + chalk.hex('#BA55D3')('✔ Phoenix systems initialized!       ')
+  );
 
-    console.log(chalk.hex('#4B0082')('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    console.log(chalk.hex('#BA55D3')('  ✔ ') + chalk.white(`Logged in as: ${client.user.tag}`));
-    console.log(chalk.hex('#BA55D3')('  ✔ ') + chalk.white('Discord connection established'));
-    console.log(chalk.hex('#BA55D3')('  ✔ ') + chalk.white('Member counter initialized'));
-    console.log(chalk.hex('#4B0082')('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
-    console.log(chalk.hex('#9932CC')('          ✨ PHOENIX BOT ONLINE ✨'));
+  console.log(chalk.hex('#4B0082')('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+  console.log(chalk.hex('#BA55D3')('  ✔ ') + chalk.white(`Logged in as: ${client.user.tag}`));
+  console.log(chalk.hex('#BA55D3')('  ✔ ') + chalk.white('Discord connection established'));
+  console.log(chalk.hex('#BA55D3')('  ✔ ') + chalk.white('Member counter initialized'));
+  console.log(chalk.hex('#4B0082')('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'));
+  console.log(chalk.hex('#9932CC')('          ✨ PHOENIX BOT ONLINE ✨'));
 
   const guild = client.guilds.cache.first();
 
@@ -178,8 +179,8 @@ async function sendVoiceLog(guild, member, title, details, color) {
   if (!logChannel || !logChannel.isTextBased()) return;
 
   const voiceContainer = new ContainerBuilder()
-  .setAccentColor(color)
-  .addTextDisplayComponents(
+    .setAccentColor(color)
+    .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `## ${title}`
       )
@@ -233,9 +234,9 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         member,
         `🟢 Voice Channel betreten von: ${member.user.tag}`,
         `> 👤 **User:** ${member.user.tag}\n` +
-        `> 🆔 **User-ID:** ${member.id}\n` +        
+        `> 🆔 **User-ID:** ${member.id}\n` +
         `> 📥 **Channel:** ${newChannel.name}\n` +
-        `> 🕒 **Zeitpunkt:** ${timestamp}`, 
+        `> 🕒 **Zeitpunkt:** ${timestamp}`,
         0x2ECC71
       );
     } else if (oldChannel && !newChannel) {
@@ -246,7 +247,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         `> 👤 **User:** ${member.user.tag}\n` +
         `> 🆔 **User-ID:** ${member.id}\n` +
         `> 📤 **Channel:** ${oldChannel.name}\n` +
-        `> 🕒 **Zeitpunkt:** ${timestamp}`, 
+        `> 🕒 **Zeitpunkt:** ${timestamp}`,
         0xED4245
       );
     } else if (
@@ -262,7 +263,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         `> 🆔 **User-ID:** ${member.id}\n` +
         `> 📤 **Von:** ${oldChannel.name}\n` +
         `> 📥 **Zu:** ${newChannel.name}\n` +
-        `> 🕒 **Zeitpunkt:** ${timestamp}`, 
+        `> 🕒 **Zeitpunkt:** ${timestamp}`,
         0xF1C40F
       );
     }
@@ -278,7 +279,7 @@ const settingsContainer = new ContainerBuilder()
         '## ⚙️・Rollenmenü\n' +
         'Hier kannst du dir Rollen selbst geben und wieder nehmen – ganz einfach per Klick.'
       ].join('\n')
-    ) 
+    )
   )
   .addSeparatorComponents(
     new SeparatorBuilder()
@@ -323,42 +324,9 @@ const settingsContainer = new ContainerBuilder()
         .setCustomId('meine-rollen')
         .setLabel('Meine Rollen')
         .setEmoji('✅')
-        .setStyle(ButtonStyle.Success)  
+        .setStyle(ButtonStyle.Success)
     )
   );
-
-  client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== 'settings') return;
-
-  if (!interaction.channel || !interaction.channel.isTextBased()) {
-    return interaction.reply({
-      content: 'Dieser Channel unterstützt keine Nachrichten.',
-      flags: MessageFlags.Ephemeral
-    });
-  }
-
-  try {
-    await interaction.channel.send({
-      components: [settingsContainer],
-      flags: MessageFlags.IsComponentsV2
-    });
-
-    await interaction.reply({
-      content: '✅ Das Rollenmenü wurde gesendet.',
-      flags: MessageFlags.Ephemeral
-    });
-  } catch (error) {
-    console.error('Fehler beim Senden des Settings-Menüs:', error);
-
-    if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: '❌ Das Rollenmenü konnte nicht gesendet werden.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-  }
-});
 
 const roleButtons = {
   ankündigung: {
@@ -375,82 +343,32 @@ const roleButtons = {
   }
 };
 
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isButton()) return;
-
-  const config = roleButtons[interaction.customId];
-  if (!config) return;
-
-  const { roleId, name } = config;
-
-  if (!roleId || !/^\d{17,20}$/.test(roleId)) {
-    console.error(
-      `Ungültige Rollen-ID für ${name}:`,
-      roleId
-    );
-
-    return interaction.reply({
-      content: 'Diese Rolle ist momentan nicht richtig konfiguriert.',
-      flags: MessageFlags.Ephemeral
-    });
-  }
-
+client.on('interactionCreate', async interaction => {
   try {
-    const member = await interaction.guild.members.fetch(
-      interaction.user.id
-    );
+    if (interaction.isChatInputCommand()) {
+      if (interaction.commandName !== 'settings') return;
 
-    const role = await interaction.guild.roles.fetch(roleId);
+      if (!interaction.channel || !interaction.channel.isTextBased()) {
+        return interaction.reply({
+          content: 'Dieser Channel unterstützt keine Nachrichten.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
 
-    if (!role) {
+      await interaction.channel.send({
+        components: [settingsContainer],
+        flags: MessageFlags.IsComponentsV2
+      });
+
       return interaction.reply({
-        content: `Die Rolle **${name}** wurde auf dem Server nicht gefunden.`,
+        content: '✅ Das Rollenmenü wurde gesendet.',
         flags: MessageFlags.Ephemeral
       });
     }
 
-    if (member.roles.cache.has(role.id)) {
-      await member.roles.remove(role);
+    if (!interaction.isButton()) return;
 
-    await sendRoleLog({
-      guild: interaction.guild,
-      user: interaction.user,
-      role,
-      action: 'removed'
-    });
-
-      return interaction.reply({
-        content: `➖ Die Rolle **${name}** wurde entfernt.`,
-        flags: MessageFlags.Ephemeral
-      });
-    }
-
-    await member.roles.add(role);
-
-    await sendRoleLog({
-      guild: interaction.guild,
-      user: interaction.user,
-      role,
-      action: 'added'
-    });
-
-    return interaction.reply({
-      content: `✅ Du hast die Rolle **${name}** erhalten!`,
-      flags: MessageFlags.Ephemeral
-    });
-  } catch (error) {
-    console.error(`Fehler bei der Rolle ${name}:`, error);
-
-    if (!interaction.replied && !interaction.deferred) {
-      return interaction.reply({
-        content: 'Beim Ändern deiner Rolle ist ein Fehler aufgetreten.',
-        flags: MessageFlags.Ephemeral
-      });
-    }
-  }
-
-  if (interaction.customId === 'meine-rollen') {
-    try {
+    if (interaction.customId === 'meine-rollen') {
       const member = await interaction.guild.members.fetch(
         interaction.user.id
       );
@@ -468,7 +386,9 @@ client.on('interactionCreate', async (interaction) => {
           )
         )
         .addSeparatorComponents(
-          new SeparatorBuilder().setDivider(true)
+          new SeparatorBuilder()
+            .setDivider(true)
+            .setSpacing(1)
         )
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
@@ -476,6 +396,11 @@ client.on('interactionCreate', async (interaction) => {
               ? rollen.join('\n')
               : 'Du hast keine zusätzlichen Rollen.'
           )
+        )
+        .addSeparatorComponents(
+          new SeparatorBuilder()
+            .setDivider(true)
+            .setSpacing(1)
         )
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
@@ -485,23 +410,85 @@ client.on('interactionCreate', async (interaction) => {
 
       return await interaction.reply({
         components: [container],
-        flags: MessageFlags.IsComponentsV2 |
-               MessageFlags.Ephemeral,
+        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
-    } catch (error) {
-      console.error('Fehler beim Anzeigen der Rollen:', error);
+    }
 
-      if (!interaction.replied && !interaction.deferred) {
-        return interaction.reply({
-          content: 'Die Rollen konnten nicht angezeigt werden.',
-          flags: MessageFlags.Ephemeral
-        });
-      }
-      return;
+    const config = roleButtons[interaction.customId];
+    if (!config) return;
+
+    const { roleId, name } = config;
+
+    if (!roleId || !/^\d{17,20}$/.test(roleId)) {
+      console.error(
+        `Ungültige Rollen-ID für ${name}:`,
+        roleId
+      );
+
+      return interaction.reply({
+        content: 'Diese Rolle ist momentan nicht richtig konfiguriert.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    await interaction.deferReply({
+      flags: MessageFlags.Ephemeral
+    });
+
+    const member = await interaction.guild.members.fetch(
+      interaction.user.id
+    );
+
+    const role = await interaction.guild.roles.fetch(roleId);
+
+    if (!role) {
+      return interaction.editReply({
+        content: `Die Rolle **${name}** wurde auf dem Server nicht gefunden.`
+      });
+    }
+
+    if (member.roles.cache.has(role.id)) {
+      await member.roles.remove(role);
+
+      await sendRoleLog({
+        guild: interaction.guild,
+        user: interaction.user,
+        role,
+        action: 'removed'
+      });
+
+      return interaction.editReply({
+        content: `➖ Die Rolle **${name}** wurde entfernt.`
+      });
+    }
+
+    await member.roles.add(role);
+
+    await sendRoleLog({
+      guild: interaction.guild,
+      user: interaction.user,
+      role,
+      action: 'added'
+    });
+
+    return interaction.editReply({
+      content: `✅ Du hast die Rolle **${name}** erhalten!`
+    });
+  } catch (error) {
+    console.error('Fehler bei der Interaktion:', error);
+
+    if (interaction.deferred) {
+      await interaction.editReply({
+        content: 'Beim Verarbeiten deiner Anfrage ist ein Fehler aufgetreten.'
+      }).catch(() => {});
+    } else if (!interaction.replied) {
+      await interaction.reply({
+        content: 'Beim Verarbeiten deiner Anfrage ist ein Fehler aufgetreten.',
+        flags: MessageFlags.Ephemeral
+      }).catch(() => {});
     }
   }
-
 });
 
 async function sendRoleLog({ guild, user, role, action }) {
@@ -568,6 +555,4 @@ async function sendRoleLog({ guild, user, role, action }) {
   }
 }
 
-
 client.login(process.env.DISCORD_BOT_TOKEN);
-
